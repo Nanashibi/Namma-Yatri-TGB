@@ -4,10 +4,13 @@ import redis
 import networkx as nx
 import streamlit as st
 from sklearn.ensemble import RandomForestRegressor
+import os
 
 # Load demand data
-demand_data = pd.read_csv("hourly_demand_data.csv")
-od_flows = pd.read_csv("od_flows_data.csv")
+hourly_demand_path = os.path.join("..","..","datasets", "hourly_demand_data.csv")
+od_flows_path = os.path.join("..","..","datasets", "od_flows_data.csv")
+demand_data = pd.read_csv(hourly_demand_path)
+od_flows = pd.read_csv(od_flows_path)
 
 def train_demand_model():
     features = ["hour", "day_of_week", "is_weekend", "searches", "searches_with_estimate", "searches_for_quotes", "searches_with_quotes"]
