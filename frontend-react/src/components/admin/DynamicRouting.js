@@ -139,7 +139,6 @@ const DynamicRouting = () => {
   return (
     <>
     <Navbar />
-      <Navbar />
       <Container className="mt-4">
         <h1>Demand Forecasting & Dynamic Driver Routing</h1>
 
