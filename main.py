@@ -52,7 +52,7 @@ def show_registration_form():
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
     confirm_password = st.text_input("Confirm Password", type="password")
-    user_type = st.selectbox("Register as", ["rider", "driver"])
+    user_type = st.selectbox("Register as", ["customer", "driver"])
     
     col1, col2 = st.columns(2)
     
@@ -82,9 +82,9 @@ def show_registration_form():
                         )
                         user_id = cursor.lastrowid
                         
-                        # Add entry to rider or driver table
-                        if user_type == "rider":
-                            cursor.execute("INSERT INTO rider (rider_id) VALUES (%s)", (user_id,))
+                        # Add entry to customer or driver table
+                        if user_type == "customer":
+                            cursor.execute("INSERT INTO customer (customer_id) VALUES (%s)", (user_id,))
                         else:
                             cursor.execute("INSERT INTO driver (driver_id) VALUES (%s)", (user_id,))
                         
@@ -141,8 +141,8 @@ def show_login_form():
                         st.session_state.name = user['name']
                         
                         # Navigate to dashboard
-                        if user['user_type'] == 'rider':
-                            navigate_to("rider_dashboard")
+                        if user['user_type'] == 'customer':
+                            navigate_to("customer_dashboard")
                         else:
                             navigate_to("driver_dashboard")
                         
@@ -156,12 +156,12 @@ def show_login_form():
         if st.button("Register Instead"):
             navigate_to("register")
 
-# Rider Dashboard
-def show_rider_dashboard():
-    st.title("Namma Yatri - Rider Dashboard")
+# Customer Dashboard
+def show_customer_dashboard():
+    st.title("Namma Yatri - Customer Dashboard")
     st.write(f"Welcome, {st.session_state.name}! Book your ride here.")
     
-    # Add tabs for different rider functions
+    # Add tabs for different customer functions
     tab1, tab2, tab3 = st.tabs(["Book a Ride", "Ride History", "Profile"])
     
     with tab1:
@@ -227,9 +227,9 @@ def show_sidebar():
         if st.session_state.authenticated:
             st.write(f"Logged in as: {st.session_state.name}")
             
-            if st.session_state.user_type == "rider":
-                if st.button("Rider Dashboard", key="nav_rider"):
-                    navigate_to("rider_dashboard")
+            if st.session_state.user_type == "customer":
+                if st.button("Customer Dashboard", key="nav_customer"):
+                    navigate_to("customer_dashboard")
             else:
                 if st.button("Driver Dashboard", key="nav_driver"):
                     navigate_to("driver_dashboard")
@@ -255,15 +255,15 @@ def main():
         elif st.session_state.page == "register":
             show_registration_form()
     else:
-        if st.session_state.user_type == "rider" and st.session_state.page == "rider_dashboard":
-            show_rider_dashboard()
+        if st.session_state.user_type == "customer" and st.session_state.page == "customer_dashboard":
+            show_customer_dashboard()
         elif st.session_state.user_type == "driver" and st.session_state.page == "driver_dashboard":
             show_driver_dashboard()
         else:
             # Fallback to correct dashboard if page doesn't match user type
-            if st.session_state.user_type == "rider":
-                navigate_to("rider_dashboard")
-                show_rider_dashboard()
+            if st.session_state.user_type == "customer":
+                navigate_to("customer_dashboard")
+                show_customer_dashboard()
             else:
                 navigate_to("driver_dashboard")
                 show_driver_dashboard()

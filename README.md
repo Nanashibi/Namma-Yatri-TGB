@@ -80,11 +80,11 @@ FastAPI provides interactive API documentation automatically:
 - **POST /api/auth/register** - Register a new user
 - **GET /api/auth/verify-session** - Verify a user's JWT token
 
-### Rider Endpoints
+### customer Endpoints
 
-- **GET /api/riders/:rider_id/location** - Get a rider's location
-- **POST /api/riders/:rider_id/refresh-location** - Update a rider's location
-- **POST /api/riders/:rider_id/request-ride** - Request a ride
+- **GET /api/customers/:customer_id/location** - Get a customer's location
+- **POST /api/customers/:customer_id/refresh-location** - Update a customer's location
+- **POST /api/customers/:customer_id/request-ride** - Request a ride
 
 ### Driver Endpoints
 
@@ -96,7 +96,7 @@ FastAPI provides interactive API documentation automatically:
 ### Admin Endpoints
 
 - **GET /api/admin/drivers** - Get all drivers
-- **GET /api/admin/riders** - Get all riders
+- **GET /api/admin/customers** - Get all customers
 - **GET /api/admin/trips** - Get all trips
 
 ## Development Notes

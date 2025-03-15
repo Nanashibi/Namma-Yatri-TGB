@@ -7,7 +7,7 @@ import api from '../../utils/api';
 const AdminDashboard = () => {
   const { currentUser } = useContext(AuthContext);
   const [drivers, setDrivers] = useState([]);
-  const [riders, setRiders] = useState([]);
+  const [customers, setcustomers] = useState([]);
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -17,11 +17,11 @@ const AdminDashboard = () => {
         setLoading(true);
         // In a real application, these would be actual API calls
         const driversResponse = await api.get('/admin/drivers');
-        const ridersResponse = await api.get('/admin/riders');
+        const customersResponse = await api.get('/admin/customers');
         const tripsResponse = await api.get('/admin/trips');
         
         setDrivers(driversResponse.data || []);
-        setRiders(ridersResponse.data || []);
+        setcustomers(customersResponse.data || []);
         setTrips(tripsResponse.data || []);
       } catch (error) {
         console.error('Error fetching admin data:', error);
@@ -50,8 +50,8 @@ const AdminDashboard = () => {
                   <div><strong>{drivers.length}</strong></div>
                 </div>
                 <div className="d-flex justify-content-between mb-3">
-                  <div>Total Riders:</div>
-                  <div><strong>{riders.length}</strong></div>
+                  <div>Total Customers:</div>
+                  <div><strong>{customers.length}</strong></div>
                 </div>
                 <div className="d-flex justify-content-between mb-3">
                   <div>Total Trips:</div>
@@ -80,7 +80,7 @@ const AdminDashboard = () => {
                     <thead>
                       <tr>
                         <th>Trip ID</th>
-                        <th>Rider</th>
+                        <th>Customer</th>
                         <th>Driver</th>
                         <th>Status</th>
                         <th>Date</th>
@@ -90,7 +90,7 @@ const AdminDashboard = () => {
                       {trips.map(trip => (
                         <tr key={trip.trip_id}>
                           <td>{trip.trip_id}</td>
-                          <td>{trip.rider_name}</td>
+                          <td>{trip.customer_name}</td>
                           <td>{trip.driver_name}</td>
                           <td>
                             <Badge bg={
@@ -155,11 +155,11 @@ const AdminDashboard = () => {
           
           <Col md={6}>
             <Card>
-              <Card.Header>Registered Riders</Card.Header>
+              <Card.Header>Registered Customers</Card.Header>
               <Card.Body>
                 {loading ? (
-                  <p>Loading rider data...</p>
-                ) : riders.length > 0 ? (
+                  <p>Loading customer data...</p>
+                ) : customers.length > 0 ? (
                   <Table striped bordered hover responsive>
                     <thead>
                       <tr>
@@ -170,18 +170,18 @@ const AdminDashboard = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {riders.map(rider => (
-                        <tr key={rider.rider_id}>
-                          <td>{rider.rider_id}</td>
-                          <td>{rider.name}</td>
-                          <td>{rider.email}</td>
-                          <td>{rider.trip_count || 0}</td>
+                      {customers.map(customer => (
+                        <tr key={customer.customer_id}>
+                          <td>{customer.customer_id}</td>
+                          <td>{customer.name}</td>
+                          <td>{customer.email}</td>
+                          <td>{customer.trip_count || 0}</td>
                         </tr>
                       ))}
                     </tbody>
                   </Table>
                 ) : (
-                  <p>No riders registered yet.</p>
+                  <p>No customers registered yet.</p>
                 )}
               </Card.Body>
             </Card>

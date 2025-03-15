@@ -37,7 +37,7 @@ The application will be available at [http://localhost:3000](http://localhost:30
 ## Features
 
 - User authentication (login/registration)
-- Rider dashboard
+- customer dashboard
 - Driver dashboard
 - Admin dashboard
 - Location tracking
@@ -55,7 +55,7 @@ frontend-react/
   │   │   ├── auth/           # Authentication components
   │   │   ├── common/         # Shared components
   │   │   ├── driver/         # Driver-related components
-  │   │   └── rider/          # Rider-related components
+  │   │   └── customer/          # customer-related components
   │   ├── contexts/           # React context APIs
   │   ├── utils/              # Utility functions
   │   ├── App.css             # Global CSS

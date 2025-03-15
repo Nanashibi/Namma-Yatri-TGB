@@ -8,7 +8,7 @@ const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [userType, setUserType] = useState('rider');
+  const [userType, setUserType] = useState('customer');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -131,7 +131,7 @@ const Register = () => {
                   value={userType}
                   onChange={(e) => setUserType(e.target.value)}
                 >
-                  <option value="rider">Rider</option>
+                  <option value="customer">Customer</option>
                   <option value="driver">Driver</option>
                 </Form.Select>
               </Form.Group>
