@@ -25,7 +25,7 @@ if "user_type" not in st.session_state:
     st.session_state.user_type = None
 
 # Check for existing session in URL params
-params = st.experimental_get_query_params()
+params = st.query_params  # Changed from experimental_get_query_params
 if "session_id" in params and not st.session_state.authenticated:
     session_data = get_session(params["session_id"][0])
     if session_data:
@@ -187,7 +187,7 @@ def show_dashboard_navigation():
             if "session_id" in st.session_state:
                 del st.session_state.session_id
             
-            st.experimental_rerun()
+            st.rerun()  # Changed from experimental_rerun
 
 # Main app
 def main():

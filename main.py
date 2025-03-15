@@ -146,7 +146,7 @@ def show_login_form():
                         else:
                             navigate_to("driver_dashboard")
                         
-                        st.experimental_rerun()
+                        st.rerun()
                     else:
                         st.error("Invalid email or password")
                 except Exception as e:
@@ -236,7 +236,7 @@ def show_sidebar():
             
             if st.button("Logout", key="nav_logout"):
                 logout()
-                st.experimental_rerun()
+                st.rerun()
         else:
             if st.button("Login", key="nav_login"):
                 navigate_to("login")

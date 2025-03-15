@@ -15,7 +15,7 @@ st.set_page_config(
 
 # Check authentication
 authenticated = False
-params = st.experimental_get_query_params()
+params = st.query_params  # Changed from experimental_get_query_params
 
 if "session_id" in params:
     session_data = get_session(params["session_id"][0])
