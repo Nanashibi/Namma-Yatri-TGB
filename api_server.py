@@ -46,8 +46,12 @@ class RegisterRequest(BaseModel):
     password: str
     user_type: str
 
-class Customerequest(BaseModel):
+class CustomerRequest(BaseModel):
     destination: str
+    pickup_lat: Optional[float] = None
+    pickup_lng: Optional[float] = None
+    destination_lat: Optional[float] = None
+    destination_lng: Optional[float] = None
 
 class StatusUpdateRequest(BaseModel):
     is_available: bool
@@ -247,7 +251,7 @@ async def refresh_customer_location(customer_id: int, user_data: dict = Depends(
         )
 
 @app.post("/api/customers/{customer_id}/request-ride")
-async def request_ride(customer_id: int, request: Customerequest, user_data: dict = Depends(verify_token)):
+async def request_ride(customer_id: int, request: CustomerRequest, user_data: dict = Depends(verify_token)):
     # Verify the user is requesting their own ride
     if user_data['user_id'] != customer_id:
         raise HTTPException(
@@ -265,7 +269,19 @@ async def request_ride(customer_id: int, request: Customerequest, user_data: dic
     
     # Book with the first available driver
     driver_id = drivers[0]['driver_id']
-    ride_id = book_ride(customer_id, driver_id)
+    
+    # Include coordinates in the ride booking
+    from utils.db_utils import book_ride_with_coords
+    
+    ride_id = book_ride_with_coords(
+        customer_id, 
+        driver_id, 
+        request.destination,
+        request.pickup_lat,
+        request.pickup_lng,
+        request.destination_lat,
+        request.destination_lng
+    )
     
     if ride_id:
         return {

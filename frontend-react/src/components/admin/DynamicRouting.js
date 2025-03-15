@@ -1,19 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Container, Row, Col, Card, Form, Button, Alert, Table } from 'react-bootstrap';
-import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
-import { AuthContext } from '../../contexts/AuthContext';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Polyline } from '@react-google-maps/api';
 import Navbar from '../common/Navbar';
 import api from '../../utils/api';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
 
-// Fix for Leaflet marker icon issue in React
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
-  iconUrl: require('leaflet/dist/images/marker-icon.png'),
-  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
-});
+const mapContainerStyle = {
+  width: '100%',
+  height: '400px',
+};
 
 const DynamicRouting = () => {
   // State variables
@@ -26,6 +20,16 @@ const DynamicRouting = () => {
   const [adjustmentFactor, setAdjustmentFactor] = useState(0);
   const [alertMessage, setAlertMessage] = useState({ type: '', message: '' });
   const [mapRoutes, setMapRoutes] = useState([]);
+  const [selectedMarker, setSelectedMarker] = useState(null);
+
+  // Google Maps API key from environment variables
+  const googleMapsApiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || '';
+
+  // Load Google Maps API with useJsApiLoader hook
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey,
+  });
 
   // Sample data for peak hours - in a real app this would come from the API
   const mockPeakHours = [
@@ -40,16 +44,16 @@ const DynamicRouting = () => {
   
   // Mock ward locations for demonstration
   const mockWardLocations = {
-    'Koramangala': [12.9352, 77.6245],
-    'Indiranagar': [12.9784, 77.6408],
-    'Whitefield': [12.9698, 77.7500],
-    'Electronic City': [12.8458, 77.6612],
-    'HSR Layout': [12.9116, 77.6474],
-    'JP Nagar': [12.9102, 77.5922],
-    'Marathahalli': [12.9591, 77.6974],
-    'Jayanagar': [12.9299, 77.5848],
-    'BTM Layout': [12.9166, 77.6101],
-    'Yelahanka': [13.1004, 77.5963]
+    'Koramangala': { lat: 12.9352, lng: 77.6245 },
+    'Indiranagar': { lat: 12.9784, lng: 77.6408 },
+    'Whitefield': { lat: 12.9698, lng: 77.7500 },
+    'Electronic City': { lat: 12.8458, lng: 77.6612 },
+    'HSR Layout': { lat: 12.9116, lng: 77.6474 },
+    'JP Nagar': { lat: 12.9102, lng: 77.5922 },
+    'Marathahalli': { lat: 12.9591, lng: 77.6974 },
+    'Jayanagar': { lat: 12.9299, lng: 77.5848 },
+    'BTM Layout': { lat: 12.9166, lng: 77.6101 },
+    'Yelahanka': { lat: 13.1004, lng: 77.5963 }
   };
 
   // Mock routing data
@@ -124,9 +128,18 @@ const DynamicRouting = () => {
     setAdjustmentFactor(mockAdjustment);
   };
 
+  const onMarkerClick = useCallback((wardName) => {
+    setSelectedMarker(wardName);
+  }, []);
+
+  const onInfoWindowClose = useCallback(() => {
+    setSelectedMarker(null);
+  }, []);
+
   return (
     <>
     <Navbar />
+      <Navbar />
       <Container className="mt-4">
         <h1>Demand Forecasting & Dynamic Driver Routing</h1>
 
@@ -255,37 +268,77 @@ const DynamicRouting = () => {
               <Card.Body>
                 {/* Map visualization */}
                 <div style={{ height: '400px', width: '100%' }}>
-                  <MapContainer 
-                    center={[12.9716, 77.5946]} // Bengaluru center
-                    zoom={12} 
-                    style={{ height: '100%', width: '100%' }}
-                  >
-                    <TileLayer
-                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
-                    
-                    {/* Render wards as markers */}
-                    {Object.entries(mockWardLocations).map(([ward, coords]) => (
-                      <Marker key={ward} position={coords}>
-                        <Popup>{ward}</Popup>
-                      </Marker>
-                    ))}
-                    
-                    {/* Render routes as polylines */}
-                    {mapRoutes.map((route, idx) => (
-                      <Polyline 
-                        key={idx}
-                        positions={route.path}
-                        color={'#' + ((1<<24)*Math.random() | 0).toString(16)} // Random color
-                        weight={3}
-                      >
-                        <Popup>
-                          {route.from} → {route.to}
-                        </Popup>
-                      </Polyline>
-                    ))}
-                  </MapContainer>
+                  {loadError ? (
+                    <div className="d-flex flex-column align-items-center justify-content-center h-100">
+                      <p className="text-danger mb-3">Failed to load map: {loadError.message}</p>
+                      <Button variant="primary" onClick={() => window.location.reload()}>
+                        Reload Page
+                      </Button>
+                    </div>
+                  ) : !isLoaded ? (
+                    <div className="d-flex justify-content-center align-items-center h-100">
+                      <Spinner animation="border" />
+                    </div>
+                  ) : (
+                    <GoogleMap
+                      mapContainerStyle={mapContainerStyle}
+                      center={{
+                        lat: 12.9716,
+                        lng: 77.5946 // Bengaluru center
+                      }}
+                      zoom={12}
+                      options={{
+                        streetViewControl: false,
+                        mapTypeControl: false
+                      }}
+                    >
+                      {/* Render wards as markers */}
+                      {Object.entries(mockWardLocations).map(([ward, position]) => (
+                        <Marker
+                          key={ward}
+                          position={position}
+                          onClick={() => onMarkerClick(ward)}
+                          icon={{
+                            url: highDemandWards.includes(ward)
+                              ? "https://maps.google.com/mapfiles/ms/icons/red-dot.png"
+                              : lowDemandWards.includes(ward)
+                                ? "https://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+                                : "https://maps.google.com/mapfiles/ms/icons/yellow-dot.png"
+                          }}
+                        >
+                          {selectedMarker === ward && (
+                            <InfoWindow
+                              position={position}
+                              onCloseClick={onInfoWindowClose}
+                            >
+                              <div>
+                                <h6>{ward}</h6>
+                                <p>{highDemandWards.includes(ward) 
+                                  ? 'High Demand Area' 
+                                  : lowDemandWards.includes(ward) 
+                                    ? 'Low Demand Area' 
+                                    : 'Medium Demand Area'}
+                                </p>
+                              </div>
+                            </InfoWindow>
+                          )}
+                        </Marker>
+                      ))}
+                      
+                      {/* Render routes as polylines */}
+                      {mapRoutes.map((route, idx) => (
+                        <Polyline
+                          key={idx}
+                          path={route.path}
+                          options={{
+                            strokeColor: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
+                            strokeOpacity: 0.8,
+                            strokeWeight: 3
+                          }}
+                        />
+                      ))}
+                    </GoogleMap>
+                  )}
                 </div>
               </Card.Body>
             </Card>
