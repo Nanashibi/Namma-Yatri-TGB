@@ -7,9 +7,14 @@ import json
 import uuid
 import pathlib
 import random
+import jwt
 
 # Load environment variables if using .env file
 load_dotenv()
+
+# JWT Secret Key for token generation
+JWT_SECRET = os.getenv('JWT_SECRET', 'namma-yatri-secret-key')
+JWT_EXPIRATION = int(os.getenv('JWT_EXPIRATION', 86400))  # Default: 24 hours in seconds
 
 def get_db_connection():
     """
@@ -265,6 +270,102 @@ def book_ride(rider_id, driver_id):
     except Exception as e:
         print(f"Error booking ride: {e}")
         return None
+    finally:
+        cursor.close()
+        conn.close()
+
+# JWT Authentication functions for React
+def generate_jwt_token(user_data):
+    """Generate a JWT token for the user"""
+    payload = {
+        'user_id': user_data['user_id'],
+        'name': user_data['name'],
+        'user_type': user_data['user_type'],
+        'exp': datetime.utcnow() + timedelta(seconds=JWT_EXPIRATION)
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm='HS256')
+    return token
+
+def verify_jwt_token(token):
+    """Verify a JWT token and return the user data"""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None  # Token has expired
+    except jwt.InvalidTokenError:
+        return None  # Invalid token
+
+# Authentication functions for React
+def authenticate_user(email, password):
+    """Authenticate a user with email/password for React frontend"""
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        # Secure password comparison should be done here
+        # For simplicity, we're using direct comparison (not recommended for production)
+        cursor.execute(
+            "SELECT user_id, name, user_type FROM users WHERE email = %s AND password_hash = %s", 
+            (email, password)  # In production, use proper password hashing
+        )
+        user = cursor.fetchone()
+        
+        if user:
+            # Generate JWT token for the React frontend
+            token = generate_jwt_token(user)
+            return {
+                'success': True,
+                'token': token,
+                'user': user
+            }
+        else:
+            return {
+                'success': False,
+                'message': 'Invalid email or password'
+            }
+    finally:
+        cursor.close()
+        conn.close()
+
+def register_user(name, email, password, user_type):
+    """Register a new user for React frontend"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Check if email already exists
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+        if cursor.fetchone():
+            return {
+                'success': False,
+                'message': 'Email already registered'
+            }
+        
+        # Insert new user
+        cursor.execute(
+            "INSERT INTO users (name, email, password_hash, user_type) VALUES (%s, %s, %s, %s)",
+            (name, email, password, user_type)  # In production, use proper password hashing
+        )
+        user_id = cursor.lastrowid
+        
+        # Add entry to rider or driver table
+        if user_type == "rider":
+            cursor.execute("INSERT INTO rider (rider_id) VALUES (%s)", (user_id,))
+        else:
+            cursor.execute("INSERT INTO driver (driver_id) VALUES (%s)", (user_id,))
+        
+        conn.commit()
+        return {
+            'success': True,
+            'message': 'Registration successful',
+            'user_id': user_id
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'message': f'Registration failed: {str(e)}'
+        }
     finally:
         cursor.close()
         conn.close()

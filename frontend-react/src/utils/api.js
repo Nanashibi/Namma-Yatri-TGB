@@ -39,44 +39,92 @@ api.interceptors.response.use(
   }
 );
 
-// Mock API functions for development until the backend is ready
-// Remove these when connecting to a real backend
-if (process.env.NODE_ENV === 'development') {
-  // Mock login
-  api.post.mockResolvedValueOnce('/auth/login', (config) => {
-    const { email, password } = JSON.parse(config.data);
-    if (email === 'rider@example.com' && password === 'password') {
-      return [200, {
-        token: 'mock-token-rider',
-        user: { user_id: 1, name: 'Test Rider', user_type: 'rider', email }
-      }];
-    } else if (email === 'driver@example.com' && password === 'password') {
-      return [200, {
-        token: 'mock-token-driver',
-        user: { user_id: 2, name: 'Test Driver', user_type: 'driver', email }
-      }];
-    } else {
-      return [401, { message: 'Invalid credentials' }];
+// Create mock implementation only if we're in development and REACT_APP_USE_MOCK_API is set
+if (process.env.NODE_ENV === 'development' && process.env.REACT_APP_USE_MOCK_API === 'true') {
+  console.warn('Using mock API - connect to a real backend for production');
+  
+  // Define mock data
+  const mockUsers = [
+    { 
+      user_id: 1, 
+      name: 'Test Rider', 
+      user_type: 'rider', 
+      email: 'rider@example.com',
+      password: 'password'
+    },
+    { 
+      user_id: 2, 
+      name: 'Test Driver', 
+      user_type: 'driver', 
+      email: 'driver@example.com',
+      password: 'password',
+      is_available: true
+    },
+    { 
+      user_id: 3, 
+      name: 'Admin User', 
+      user_type: 'admin', 
+      email: 'admin@example.com',
+      password: 'password'
     }
+  ];
+
+  // Mock interceptor
+  const mockAxios = axios.create();
+  mockAxios.interceptors.request.use(async (config) => {
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Extract endpoint and method
+    const url = config.url;
+    const method = config.method.toLowerCase();
+    
+    // Define mock responses for various endpoints
+    if (url === '/auth/login' && method === 'post') {
+      const data = JSON.parse(config.data);
+      const user = mockUsers.find(u => 
+        u.email === data.email && u.password === data.password
+      );
+      
+      if (user) {
+        return {
+          data: {
+            token: `mock-token-${user.user_type}-${user.user_id}`,
+            user: {
+              user_id: user.user_id,
+              name: user.name,
+              user_type: user.user_type,
+              email: user.email
+            }
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config
+        };
+      } else {
+        throw {
+          response: {
+            data: { message: 'Invalid email or password' },
+            status: 401,
+            statusText: 'Unauthorized'
+          }
+        };
+      }
+    }
+    
+    // Add more mock endpoints as needed
+    
+    // Default behavior for non-mocked endpoints
+    console.warn(`API request not mocked: ${method} ${url}`);
+    return config;
   });
-  
-  // Mock rider location data
-  api.get.mockImplementation('/riders/:id/location', (config) => {
-    return [200, {
-      location: 'Koramangala, Bengaluru',
-      latitude: 12.9352,
-      longitude: 77.6245
-    }];
-  });
-  
-  // Mock driver location data
-  api.get.mockImplementation('/drivers/:id/location', (config) => {
-    return [200, {
-      location: 'Indiranagar, Bengaluru',
-      latitude: 12.9784,
-      longitude: 77.6408
-    }];
-  });
+
+  // Override the original api methods
+  api.get = mockAxios.get;
+  api.post = mockAxios.post;
+  api.put = mockAxios.put;
+  api.delete = mockAxios.delete;
 }
 
 export default api;

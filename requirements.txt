@@ -1,19 +1,24 @@
 # Backend Dependencies
 fastapi==0.104.1
 uvicorn==0.23.2
-mysql-connector-python==8.2.0
-redis==5.0.1
-websockets==12.0
-kafka-python==2.0.2
+mysql-connector-python==8.0.32
 pydantic==2.4.2
+pydantic[email]==2.4.2
+email-validator==2.1.0.post1
 
-# Frontend Dependencies
-streamlit==1.28.1
-pandas==2.1.2
-folium==0.14.0
-streamlit-folium==0.15.0
+# Database and Cache
+redis==5.0.1
 
 # External Integrations
+PyJWT==2.6.0
+websockets==12.0
+kafka-python==2.0.2
+
+# Frontend Dependencies (Streamlit)
+streamlit==1.28.1
+pandas==1.5.3
+folium==0.14.0
+streamlit-folium==0.15.0
 
 # Development Tools
 python-dotenv==1.0.0
