@@ -27,17 +27,12 @@ CREATE TABLE rides (
 
 CREATE TABLE rider (
     rider_id INT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    username VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
+    location VARCHAR(255),
     FOREIGN KEY (rider_id) REFERENCES users(user_id)
 );
 
 CREATE TABLE driver (
     driver_id INT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    username VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
     location VARCHAR(255),
     FOREIGN KEY (driver_id) REFERENCES users(user_id)
 );
