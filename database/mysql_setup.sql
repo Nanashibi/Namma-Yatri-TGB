@@ -49,6 +49,17 @@ CREATE TABLE driver (
     FOREIGN KEY (driver_id) REFERENCES users(user_id)
 );
 
+-- Create the 'prebooked_rides' table
+CREATE TABLE IF NOT EXISTS prebooked_rides (
+    ride_id VARCHAR(36) PRIMARY KEY,
+    customer_id INT NOT NULL,
+    ward VARCHAR(50) NOT NULL,
+    pickup_time DATETIME NOT NULL,
+    status ENUM('pending', 'accepted', 'cancelled') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES users(user_id)
+);
+
 -- Add an admin user for testing
 INSERT INTO users (name, email, password_hash, user_type)
 VALUES ('Admin User', 'admin@nammayatri.com', 'admin123', 'admin');

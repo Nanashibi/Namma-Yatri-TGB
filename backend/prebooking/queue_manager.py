@@ -1,5 +1,6 @@
 import pika
 import json
+import time
 
 RABBITMQ_HOST = "localhost"
 
@@ -22,6 +23,18 @@ class QueueManager:
             properties=pika.BasicProperties(delivery_mode=2)  # Make message persistent
         )
         print(f"Ride added to queue: prebook_{ward}")
+
+    def get_prebooked_rides(self, ward):
+        """Retrieve all prebooked rides for a ward"""
+        rides = []
+        while True:
+            method_frame, header_frame, body = self.channel.basic_get(queue=f"prebook_{ward}", auto_ack=False)
+            if method_frame:
+                rides.append(json.loads(body))
+                self.channel.basic_nack(method_frame.delivery_tag, requeue=True)  # Requeue the message
+            else:
+                break
+        return rides
 
     def close(self):
         self.connection.close()

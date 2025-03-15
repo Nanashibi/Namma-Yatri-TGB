@@ -7,7 +7,7 @@ from .admin_routes import router as admin_router
 from backend.dynamic_routing.app import router as dynamic_routing_router
 from .booking_routes import router as booking_router
 from .cancellation_routes import router as cancellation_router
-from .prebooking_routes import router as prebooking_router
+from  backend.prebooking.app import router as prebooking_router
 from .gamification_routes import router as gamification_router
 from .realtime_voting_routes import router as realtime_voting_router
 from .recommender_routes import router as recommender_router

@@ -2,7 +2,7 @@
 echo Starting Namma Yatri Application
 
 echo Setting up database...
-python database/setup_database.py
+py database/setup_database.py
 
 echo Starting React frontend...
 cd frontend-react

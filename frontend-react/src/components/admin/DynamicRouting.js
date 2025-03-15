@@ -50,11 +50,12 @@ const DynamicRouting = () => {
   useEffect(() => {
     const fetchDemandData = async () => {
       try {
-        const peakHoursResponse = await api.get('/peak_hours');
-        const highDemandWardsResponse = await api.get('/high_demand_wards');
-        const routesResponse = await api.get('/optimal_routes');
-
+        const peakHoursResponse = await api.get('dynamic-routing/peak_hours');
         setPeakHours(peakHoursResponse.data.peak_hours);
+
+        const highDemandWardsResponse = await api.get('dynamic-routing/high_demand_wards');
+        const routesResponse = await api.get('dynamic-routing/optimal_routes');
+
         setHighDemandWards(highDemandWardsResponse.data.high_demand_wards);
         setLowDemandWards(['JP Nagar', 'Marathahalli', 'Jayanagar', 'BTM Layout', 'Yelahanka']); // Example low demand wards
         setRoutes(Object.entries(routesResponse.data.routes).map(([from, path]) => ({
@@ -90,7 +91,7 @@ const DynamicRouting = () => {
     }
 
     try {
-      await api.post('dynamic_routing/vote', { driver_id: driverId, vote: priceVote });
+      await api.post('dynamic-routing/vote', { driver_id: driverId, vote: priceVote });
       setAlertMessage({
         type: 'success',
         message: 'Vote registered successfully!'
@@ -105,7 +106,7 @@ const DynamicRouting = () => {
 
   const handleGetAdjustment = async () => {
     try {
-      const response = await api.get('/price_adjustment');
+      const response = await api.get('dynamic-routing/price_adjustment');
       setAdjustmentFactor(response.data.adjustment_factor);
     } catch (error) {
       console.error("Error fetching adjustment factor:", error);
@@ -145,7 +146,7 @@ const DynamicRouting = () => {
                 <ul className="list-group mb-3">
                   {peakHours.map((hour, idx) => (
                     <li key={idx} className="list-group-item">
-                      {hour.formatted}
+                      {hour}
                     </li>
                   ))}
                 </ul>

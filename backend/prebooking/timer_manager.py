@@ -1,10 +1,9 @@
 import time
 import threading
-from queue_manager import QueueManager
 
 class TimerManager:
-    def __init__(self):
-        self.queue_manager = QueueManager()
+    def __init__(self, queue_manager):
+        self.queue_manager = queue_manager
 
     def start_acceptance_timer(self, ward, ride_details, timeout=120):
         """Start a timer for driver acceptance"""
