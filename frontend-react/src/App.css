@@ -1,0 +1,54 @@
+/* Base styles */
+body {
+  background-color: #f8f9fa;
+}
+
+.App {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.navbar-brand {
+  font-weight: bold;
+}
+
+/* Map Styles */
+.leaflet-container {
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Card Styles */
+.card {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.card-header {
+  background-color: #f1f3f5;
+  font-weight: 600;
+}
+
+/* Form Styles */
+.form-label {
+  font-weight: 500;
+}
+
+/* Alert Styles */
+.alert {
+  margin-bottom: 20px;
+}
+
+/* Table Styles */
+.table th {
+  font-weight: 600;
+}
+
+/* Dashboard spacing */
+.dashboard-section {
+  margin-bottom: 2rem;
+}
+
+/* Authentication form styling */
+.auth-form {
+  max-width: 400px;
+  margin: 0 auto;
+}
