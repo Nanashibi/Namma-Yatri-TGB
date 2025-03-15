@@ -7,7 +7,7 @@ import sys
 
 # Add parent directory to path to import database utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.db_utils import get_db_connection
+from utils.db_utils import get_db_connection, create_session, get_session, delete_session
 
 # Set page config
 st.set_page_config(
@@ -23,6 +23,17 @@ if "user_id" not in st.session_state:
     st.session_state.user_id = None
 if "user_type" not in st.session_state:
     st.session_state.user_type = None
+
+# Check for existing session in URL params
+params = st.experimental_get_query_params()
+if "session_id" in params and not st.session_state.authenticated:
+    session_data = get_session(params["session_id"][0])
+    if session_data:
+        st.session_state.authenticated = True
+        st.session_state.user_id = session_data["user_id"]
+        st.session_state.user_type = session_data["user_type"]
+        st.session_state.name = session_data["name"]
+        st.session_state.session_id = session_data["session_id"]
 
 # Function to hash passwords
 def hash_password(password):
@@ -86,8 +97,8 @@ def show_registration_form():
 def show_login_form():
     st.header("Login")
     
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
+    email = st.text_input("Email", key="login_email")
+    password = st.text_input("Password", type="password", key="login_password")
     
     if st.button("Login"):
         if not email or not password:
@@ -110,14 +121,30 @@ def show_login_form():
                 if user:
                     st.success(f"Welcome back, {user['name']}!")
                     
+                    # Create persistent session
+                    session_id = create_session(user)
+                    
                     # Set session state
                     st.session_state.authenticated = True
                     st.session_state.user_id = user['user_id']
                     st.session_state.user_type = user['user_type']
                     st.session_state.name = user['name']
+                    st.session_state.session_id = session_id
                     
                     # Redirect to appropriate dashboard
-                    st.experimental_rerun()
+                    if user['user_type'] == 'rider':
+                        dashboard_url = f"../rider_dashboard/app.py?session_id={session_id}"
+                    else:
+                        dashboard_url = f"../driver_dashboard/app.py?session_id={session_id}"
+                    
+                    # Use JavaScript for actual redirect to another Streamlit app
+                    js_redirect = f"""
+                    <script>
+                        window.location.href = "{dashboard_url}";
+                    </script>
+                    """
+                    st.markdown(js_redirect, unsafe_allow_html=True)
+                    st.write(f"If you are not redirected automatically, [click here]({dashboard_url})")
                 else:
                     st.error("Invalid email or password")
             except Exception as e:
@@ -127,18 +154,40 @@ def show_login_form():
 def show_dashboard_navigation():
     st.write(f"Logged in as: {st.session_state.name} ({st.session_state.user_type})")
     
-    if st.button("Go to Dashboard"):
-        if st.session_state.user_type == "rider":
-            link = "../rider_dashboard/app.py"
-        else:
-            link = "../driver_dashboard/app.py"
-        st.markdown(f'<meta http-equiv="refresh" content="0; url={link}">', unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
     
-    if st.button("Logout"):
-        st.session_state.authenticated = False
-        st.session_state.user_id = None
-        st.session_state.user_type = None
-        st.experimental_rerun()
+    with col1:
+        if st.button("Go to Dashboard"):
+            session_id = st.session_state.session_id
+            if st.session_state.user_type == "rider":
+                dashboard_url = f"../rider_dashboard/app.py?session_id={session_id}"
+            else:
+                dashboard_url = f"../driver_dashboard/app.py?session_id={session_id}"
+            
+            # Use JavaScript for actual redirect to another Streamlit app
+            js_redirect = f"""
+            <script>
+                window.location.href = "{dashboard_url}";
+            </script>
+            """
+            st.markdown(js_redirect, unsafe_allow_html=True)
+            st.write(f"If you are not redirected automatically, [click here]({dashboard_url})")
+    
+    with col2:
+        if st.button("Logout"):
+            # Delete the session
+            if "session_id" in st.session_state:
+                delete_session(st.session_state.session_id)
+            
+            # Clear session state
+            st.session_state.authenticated = False
+            st.session_state.user_id = None
+            st.session_state.user_type = None
+            st.session_state.name = None
+            if "session_id" in st.session_state:
+                del st.session_state.session_id
+            
+            st.experimental_rerun()
 
 # Main app
 def main():

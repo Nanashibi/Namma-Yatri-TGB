@@ -1,8 +1,84 @@
 import mysql.connector
-from datetime import datetime, time
+from datetime import datetime, timedelta
 import pandas as pd
 import os
 from dotenv import load_dotenv
+import json
+import uuid
+import pathlib
+
+# Load environment variables if using .env file
+load_dotenv()
+
+def get_db_connection():
+    """
+    Creates and returns a connection to the database
+    """
+    try:
+        connection = mysql.connector.connect(
+            host=os.getenv('DB_HOST', 'localhost'),
+            user=os.getenv('DB_USER', 'root'),
+            password=os.getenv('DB_PASSWORD', ''),
+            database=os.getenv('DB_NAME', 'namma_yatri_db')
+        )
+        return connection
+    except mysql.connector.Error as e:
+        print(f"Error connecting to MySQL database: {e}")
+        raise e
+
+# Session management functions
+def get_sessions_dir():
+    """Get or create the sessions directory"""
+    base_dir = pathlib.Path(__file__).parent.parent
+    sessions_dir = base_dir / "sessions"
+    if not sessions_dir.exists():
+        sessions_dir.mkdir(exist_ok=True)
+    return sessions_dir
+
+def create_session(user_data):
+    """Create a new session for a user"""
+    session_id = str(uuid.uuid4())
+    session_data = {
+        "session_id": session_id,
+        "user_id": user_data["user_id"],
+        "name": user_data["name"],
+        "user_type": user_data["user_type"],
+        "created_at": datetime.now().isoformat(),
+        "expires_at": (datetime.now() + timedelta(hours=24)).isoformat()
+    }
+    
+    session_file = get_sessions_dir() / f"{session_id}.json"
+    with open(session_file, "w") as f:
+        json.dump(session_data, f)
+    
+    return session_id
+
+def get_session(session_id):
+    """Get session data if valid"""
+    try:
+        session_file = get_sessions_dir() / f"{session_id}.json"
+        if not session_file.exists():
+            return None
+        
+        with open(session_file, "r") as f:
+            session_data = json.load(f)
+        
+        # Check if session has expired
+        expires_at = datetime.fromisoformat(session_data["expires_at"])
+        if datetime.now() > expires_at:
+            delete_session(session_id)
+            return None
+            
+        return session_data
+    except Exception as e:
+        print(f"Error getting session: {e}")
+        return None
+
+def delete_session(session_id):
+    """Delete a session"""
+    session_file = get_sessions_dir() / f"{session_id}.json"
+    if session_file.exists():
+        session_file.unlink()
 
 try:
     connection = mysql.connector.connect(
@@ -14,28 +90,6 @@ try:
     print("Connected to database")
 except Exception as e:
     print("Error connecting to database", e)
-
-def authenticate_user(username, password):
-    conn=connection
-    cursor=conn.cursor()
-    cursor.execute("SELECT user_id FROM users WHERE name=%s AND password_hash=%s", (username, password))
-    user=conn.fetchone()
-    if user:
-        user_id = user[0]
-        cursor.execute("SELECT rider_id FROM riders WHERE rider_id = ?", (user_id,))
-        rider = cursor.fetchone()
-        
-        if rider:
-            return "Rider", user_id
-        cursor.execute("SELECT driver_id FROM drivers WHERE driver_id = ?", (user_id,))
-        driver = cursor.fetchone()
-        
-        if driver:
-            return "Driver", user_id
-        
-        return "User", user_id
-    else:
-        return None
 
 def get_nearest_driver(rider_id):
     conn = connection
