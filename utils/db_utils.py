@@ -92,9 +92,7 @@ def generate_random_bengaluru_location():
     
     # Popular places in Bengaluru for more realistic locations
     locations = [
-        "Indiranagar", "Koramangala", "MG Road", "Whitefield", 
-        "Electronic City", "HSR Layout", "Jayanagar", "JP Nagar",
-        "Bannerghatta Road", "Yelahanka", "Hebbal", "Marathahalli"
+        "Bengaluru"
     ]
     location_name = random.choice(locations)
     
@@ -103,6 +101,27 @@ def generate_random_bengaluru_location():
         "longitude": longitude,
         "location_name": location_name
     }
+
+def ensure_location_data(location_data):
+    """Ensure location data is in a consistent format"""
+    if not location_data:
+        return generate_random_bengaluru_location()
+        
+    # Convert string values to float if needed
+    if 'latitude' in location_data and isinstance(location_data['latitude'], str):
+        location_data['latitude'] = float(location_data['latitude'])
+    if 'longitude' in location_data and isinstance(location_data['longitude'], str):
+        location_data['longitude'] = float(location_data['longitude'])
+        
+    # Add default values if missing
+    if 'latitude' not in location_data or location_data['latitude'] is None:
+        location_data['latitude'] = 12.9716
+    if 'longitude' not in location_data or location_data['longitude'] is None:
+        location_data['longitude'] = 77.5946
+    if 'location' not in location_data or not location_data['location']:
+        location_data['location'] = "Bengaluru"
+        
+    return location_data
 
 def get_rider_location(rider_id):
     """Get a rider's current location"""

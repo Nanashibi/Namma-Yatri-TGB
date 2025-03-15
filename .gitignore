@@ -36,3 +36,5 @@ sessions/
 
 # Log files
 *.log
+
+frontend-react/node_modules/
