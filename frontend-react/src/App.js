@@ -7,6 +7,7 @@ import Register from './components/auth/Register';
 import CustomerDashboard from './components/customer/CustomerDashboard';
 import DriverDashboard from './components/driver/DriverDashboard';
 import AdminDashboard from './components/admin/AdminDashboard';
+import DynamicRouting from './components/admin/DynamicRouting';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
@@ -41,6 +42,14 @@ function App() {
               element={
                 <ProtectedRoute userType="admin">
                   <AdminDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/dynamic-routing" 
+              element={
+                <ProtectedRoute userType="admin">
+                  <DynamicRouting />
                 </ProtectedRoute>
               } 
             />

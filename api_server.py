@@ -12,6 +12,14 @@ from utils.db_utils import (
     get_db_connection
 )
 
+# Add these imports for demand prediction
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor
+import redis
+import networkx as nx
+import os
+
 app = FastAPI(
     title="Namma Yatri API",
     description="API for the Namma Yatri ride booking platform",
@@ -44,6 +52,10 @@ class Customerequest(BaseModel):
 class StatusUpdateRequest(BaseModel):
     is_available: bool
 
+class PriceVoteRequest(BaseModel):
+    driver_id: int
+    vote: int  # 1 for increase, -1 for decrease
+
 # Dependency for token verification
 async def verify_token(authorization: Optional[str] = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
@@ -64,6 +76,82 @@ async def verify_token(authorization: Optional[str] = Header(None)):
         )
         
     return user_data
+
+# Initialize Redis client
+try:
+    redis_client = redis.StrictRedis(host='localhost', port=6379, decode_responses=True)
+except:
+    # Mock redis client for development
+    class MockRedis:
+        def __init__(self):
+            self.data = {}
+        
+        def hincrby(self, name, key, amount=1):
+            if name not in self.data:
+                self.data[name] = {}
+            if key not in self.data[name]:
+                self.data[name][key] = 0
+            self.data[name][key] += amount
+            return self.data[name][key]
+        
+        def hget(self, name, key):
+            if name in self.data and key in self.data[name]:
+                return str(self.data[name][key])
+            return '0'
+    
+    redis_client = MockRedis()
+
+# Initialize demand data
+try:
+    hourly_demand_path = os.path.join("datasets", "hourly_demand_data.csv")
+    od_flows_path = os.path.join("datasets", "od_flows_data.csv")
+    demand_data = pd.read_csv(hourly_demand_path)
+    od_flows = pd.read_csv(od_flows_path)
+except:
+    # Create mock data if files don't exist
+    demand_data = pd.DataFrame({
+        'hour': range(24) * 7,
+        'day_of_week': [i // 24 for i in range(24 * 7)],
+        'is_weekend': [1 if i // 24 >= 5 else 0 for i in range(24 * 7)],
+        'ward': ['Koramangala', 'Indiranagar', 'Whitefield', 'Electronic City', 'HSR Layout'] * 33 + ['Koramangala', 'Indiranagar', 'Whitefield'],
+        'searches': np.random.randint(50, 500, size=24 * 7),
+        'searches_with_estimate': np.random.randint(30, 400, size=24 * 7),
+        'searches_for_quotes': np.random.randint(20, 300, size=24 * 7),
+        'searches_with_quotes': np.random.randint(10, 200, size=24 * 7),
+    })
+    
+    # Create mock OD flows
+    wards = ['Koramangala', 'Indiranagar', 'Whitefield', 'Electronic City', 'HSR Layout', 
+             'JP Nagar', 'Marathahalli', 'Jayanagar', 'BTM Layout', 'Yelahanka']
+    od_pairs = []
+    for origin in wards:
+        for destination in wards:
+            if origin != destination:
+                od_pairs.append({
+                    'origin_ward': origin,
+                    'destination_ward': destination,
+                    'ride_count': np.random.randint(10, 1000)
+                })
+    od_flows = pd.DataFrame(od_pairs)
+
+# Train demand model
+def train_demand_model():
+    features = ["hour", "day_of_week", "is_weekend", "searches", "searches_with_estimate", "searches_for_quotes", "searches_with_quotes"]
+    target = "searches"
+    
+    X = demand_data[features]
+    y = demand_data[target]
+    
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X, y)
+    return model
+
+demand_model = train_demand_model()
+
+# Create graph from OD flows
+G = nx.Graph()
+for _, row in od_flows.iterrows():
+    G.add_edge(row["origin_ward"], row["destination_ward"], weight=row["ride_count"])
 
 # Auth routes
 @app.post("/api/auth/login", status_code=status.HTTP_200_OK)
@@ -376,6 +464,108 @@ async def get_all_trips(user_data: dict = Depends(verify_token)):
     finally:
         cursor.close()
         conn.close()
+
+# Dynamic routing endpoints
+@app.get("/api/dynamic-routing/peak-hours")
+async def get_peak_hours(user_data: dict = Depends(verify_token)):
+    # Verify the user is an admin
+    if user_data['user_type'] != 'admin':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Unauthorized"
+        )
+    
+    demand_data["predicted_demand"] = demand_model.predict(demand_data[["hour", "day_of_week", "is_weekend", "searches", "searches_with_estimate", "searches_for_quotes", "searches_with_quotes"]])
+    
+    # Convert peak hours to AM/PM format
+    peak_hours = (
+        demand_data.groupby("hour")["predicted_demand"].sum()
+        .sort_values(ascending=False)
+        .head(5)
+        .index.tolist()
+    )
+    peak_hours_formatted = [{"hour": hour, "formatted": f"{hour % 12 or 12} {'AM' if hour < 12 else 'PM'}"} for hour in peak_hours]
+    
+    return peak_hours_formatted
+
+@app.get("/api/dynamic-routing/high-demand-wards")
+async def get_high_demand_wards(user_data: dict = Depends(verify_token)):
+    # Verify the user is an admin
+    if user_data['user_type'] != 'admin':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Unauthorized"
+        )
+    
+    demand_data["predicted_demand"] = demand_model.predict(demand_data[["hour", "day_of_week", "is_weekend", "searches", "searches_with_estimate", "searches_for_quotes", "searches_with_quotes"]])
+    
+    high_demand_wards = (
+        demand_data.groupby("ward")["predicted_demand"].sum()
+        .sort_values(ascending=False)
+        .head(5)
+        .index.tolist()
+    )
+    
+    return high_demand_wards
+
+@app.get("/api/dynamic-routing/optimal-routes")
+async def get_optimal_routes(user_data: dict = Depends(verify_token)):
+    # Verify the user is an admin
+    if user_data['user_type'] != 'admin':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Unauthorized"
+        )
+    
+    demand = {ward: demand_data[demand_data["ward"] == ward]["predicted_demand"].sum() for ward in demand_data["ward"].unique()}
+    available_drivers = {ward: np.random.randint(1, 10) for ward in demand.keys()}
+    
+    low_demand_wards = sorted(demand, key=lambda x: (demand.get(x, 0), available_drivers.get(x, 0)))[:5]
+    high_demand_wards = sorted(demand, key=lambda x: (demand.get(x, 0), -available_drivers.get(x, 0)), reverse=True)[:5]
+    
+    routes = []
+    for ld in low_demand_wards:
+        for hd in high_demand_wards:
+            try:
+                if nx.has_path(G, ld, hd):
+                    path = nx.shortest_path(G, ld, hd, weight='weight')
+                    routes.append({"from": ld, "to": hd, "path": path})
+            except:
+                continue
+    
+    return routes[:5]  # Return top 5 routes
+
+@app.post("/api/dynamic-routing/price-vote")
+async def submit_price_vote(request: PriceVoteRequest, user_data: dict = Depends(verify_token)):
+    # Only allow drivers to vote
+    if user_data['user_type'] != 'driver':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only drivers can vote on pricing"
+        )
+    
+    try:
+        redis_client.hincrby("price_votes", "total_votes", request.vote)
+        redis_client.hincrby("price_votes", "vote_count", 1)
+        return {"message": "Vote registered successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to register vote: {str(e)}"
+        )
+
+@app.get("/api/dynamic-routing/price-adjustment")
+async def get_price_adjustment(user_data: dict = Depends(verify_token)):
+    try:
+        total_votes = int(redis_client.hget("price_votes", "total_votes") or 0)
+        vote_count = int(redis_client.hget("price_votes", "vote_count") or 1)  # Avoid division by zero
+        adjustment_factor = total_votes / vote_count
+        return {"adjustment_factor": adjustment_factor}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to calculate price adjustment: {str(e)}"
+        )
 
 if __name__ == "__main__":
     # Get port from environment variable or use default

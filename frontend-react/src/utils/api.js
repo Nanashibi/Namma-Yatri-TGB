@@ -114,7 +114,47 @@ if (process.env.NODE_ENV === 'development' && process.env.REACT_APP_USE_MOCK_API
       }
     }
     
-    // Add more mock endpoints as needed
+    // Mock dynamic routing endpoints
+    if (url === '/dynamic-routing/peak-hours' && method === 'get') {
+      return {
+        data: [
+          { hour: 8, formatted: '8 AM' },
+          { hour: 17, formatted: '5 PM' },
+          { hour: 9, formatted: '9 AM' },
+          { hour: 18, formatted: '6 PM' },
+          { hour: 19, formatted: '7 PM' }
+        ],
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config
+      };
+    }
+    
+    if (url === '/dynamic-routing/high-demand-wards' && method === 'get') {
+      return {
+        data: ['Koramangala', 'Indiranagar', 'Whitefield', 'Electronic City', 'HSR Layout'],
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config
+      };
+    }
+    
+    if (url === '/dynamic-routing/optimal-routes' && method === 'get') {
+      return {
+        data: [
+          { from: 'JP Nagar', to: 'Koramangala', path: ['JP Nagar', 'BTM Layout', 'Koramangala'] },
+          { from: 'Marathahalli', to: 'Indiranagar', path: ['Marathahalli', 'Indiranagar'] },
+          { from: 'Jayanagar', to: 'Electronic City', path: ['Jayanagar', 'BTM Layout', 'Electronic City'] },
+          { from: 'Yelahanka', to: 'Whitefield', path: ['Yelahanka', 'Indiranagar', 'Whitefield'] }
+        ],
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config
+      };
+    }
     
     // Default behavior for non-mocked endpoints
     console.warn(`API request not mocked: ${method} ${url}`);

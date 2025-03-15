@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Container, Row, Col, Card, Table, Badge } from 'react-bootstrap';
+import { Container, Row, Col, Card, Table, Badge, Button } from 'react-bootstrap';
 import { AuthContext } from '../../contexts/AuthContext';
+import { Link } from 'react-router-dom';
 import Navbar from '../common/Navbar';
 import api from '../../utils/api';
 
@@ -37,7 +38,14 @@ const AdminDashboard = () => {
     <>
       <Navbar />
       <Container className="mt-4">
-        <h1>Admin Dashboard</h1>
+        <Row className="mb-4">
+          <Col>
+            <h1 className="float-start">Admin Dashboard</h1>
+            <Link to="/dynamic-routing" className="float-end">
+              <Button variant="primary">Dynamic Routing Analysis</Button>
+            </Link>
+          </Col>
+        </Row>
         <p>Welcome, {currentUser?.name}! Monitor rides and driver performance.</p>
         
         <Row className="mt-4">
