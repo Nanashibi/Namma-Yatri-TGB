@@ -62,7 +62,7 @@ const RiderDashboard = () => {
     
     setSearchingDrivers(true);
     try {
-      const response = await api.post(`/riders/${currentUser.user_id}/request-ride`, { 
+      await api.post(`/riders/${currentUser.user_id}/request-ride`, { 
         destination 
       });
       setMessage({ type: 'success', text: 'Searching for drivers near you...' });

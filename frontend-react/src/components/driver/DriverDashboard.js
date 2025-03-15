@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { Container, Row, Col, Card, Form, Button, Alert, Badge } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Alert, Badge } from 'react-bootstrap';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { AuthContext } from '../../contexts/AuthContext';
 import Navbar from '../common/Navbar';
@@ -47,8 +47,8 @@ const DriverDashboard = () => {
   const handleRefreshLocation = async () => {
     try {
       setLoading(true);
-      const response = await api.post(`/drivers/${currentUser.user_id}/refresh-location`);
-      setLocation(response.data);
+      const locationResponse = await api.post(`/drivers/${currentUser.user_id}/refresh-location`);
+      setLocation(locationResponse.data);
       setMessage({ type: 'success', text: 'Location updated successfully!' });
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
@@ -61,7 +61,7 @@ const DriverDashboard = () => {
   const handleUpdateAvailability = async () => {
     try {
       setUpdatingStatus(true);
-      const response = await api.post(`/drivers/${currentUser.user_id}/update-status`, {
+      await api.post(`/drivers/${currentUser.user_id}/update-status`, {
         is_available: !isAvailable
       });
       setIsAvailable(!isAvailable);

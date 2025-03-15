@@ -103,13 +103,14 @@ if (process.env.NODE_ENV === 'development' && process.env.REACT_APP_USE_MOCK_API
           config
         };
       } else {
-        throw {
-          response: {
-            data: { message: 'Invalid email or password' },
-            status: 401,
-            statusText: 'Unauthorized'
-          }
+        // Fix: Create and throw a proper error object
+        const error = new Error('Invalid email or password');
+        error.response = {
+          data: { message: 'Invalid email or password' },
+          status: 401,
+          statusText: 'Unauthorized'
         };
+        throw error;
       }
     }
     

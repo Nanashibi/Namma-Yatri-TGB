@@ -1,7 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../contexts/AuthContext';
-import { Container, Row, Col, Card, Form, Button, Alert, Nav } from 'react-bootstrap';
+import { Container, Card, Form, Button, Alert, Nav } from 'react-bootstrap';
 
 const Login = () => {
   const [email, setEmail] = useState('');

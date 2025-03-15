@@ -7,7 +7,7 @@ CREATE TABLE users (
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    user_type ENUM('rider', 'driver') NOT NULL,
+    user_type ENUM('rider', 'driver', 'admin') NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -45,3 +45,19 @@ CREATE TABLE driver (
     is_available BOOLEAN DEFAULT TRUE,
     FOREIGN KEY (driver_id) REFERENCES users(user_id)
 );
+
+-- Add an admin user for testing
+INSERT INTO users (name, email, password_hash, user_type)
+VALUES ('Admin User', 'admin@nammayatri.com', 'admin123', 'admin');
+
+-- Add a test rider
+INSERT INTO users (name, email, password_hash, user_type)
+VALUES ('Test Rider', 'rider@example.com', 'password', 'rider');
+INSERT INTO rider (rider_id) 
+VALUES (LAST_INSERT_ID());
+
+-- Add a test driver
+INSERT INTO users (name, email, password_hash, user_type)
+VALUES ('Test Driver', 'driver@example.com', 'password', 'driver');
+INSERT INTO driver (driver_id, is_available) 
+VALUES (LAST_INSERT_ID(), TRUE);

@@ -299,44 +299,59 @@ def verify_jwt_token(token):
 # Authentication functions for React
 def authenticate_user(email, password):
     """Authenticate a user with email/password for React frontend"""
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    
     try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        # For debugging
+        print(f"Attempting login for email: {email}")
+        
         # Secure password comparison should be done here
         # For simplicity, we're using direct comparison (not recommended for production)
         cursor.execute(
             "SELECT user_id, name, user_type FROM users WHERE email = %s AND password_hash = %s", 
-            (email, password)  # In production, use proper password hashing
+            (email, password)
         )
         user = cursor.fetchone()
         
         if user:
             # Generate JWT token for the React frontend
             token = generate_jwt_token(user)
+            print(f"Login successful for user: {user['name']}")
             return {
                 'success': True,
                 'token': token,
                 'user': user
             }
         else:
+            print(f"Login failed: User not found or incorrect password")
             return {
                 'success': False,
                 'message': 'Invalid email or password'
             }
+    except Exception as e:
+        print(f"Login error: {e}")
+        return {
+            'success': False,
+            'message': f'Login error: {str(e)}'
+        }
     finally:
         cursor.close()
         conn.close()
 
 def register_user(name, email, password, user_type):
     """Register a new user for React frontend"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
     try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # For debugging
+        print(f"Attempting registration for email: {email}, user type: {user_type}")
+        
         # Check if email already exists
         cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         if cursor.fetchone():
+            print(f"Registration failed: Email already exists")
             return {
                 'success': False,
                 'message': 'Email already registered'
@@ -345,27 +360,39 @@ def register_user(name, email, password, user_type):
         # Insert new user
         cursor.execute(
             "INSERT INTO users (name, email, password_hash, user_type) VALUES (%s, %s, %s, %s)",
-            (name, email, password, user_type)  # In production, use proper password hashing
+            (name, email, password, user_type)
         )
         user_id = cursor.lastrowid
         
         # Add entry to rider or driver table
         if user_type == "rider":
-            cursor.execute("INSERT INTO rider (rider_id) VALUES (%s)", (user_id,))
-        else:
-            cursor.execute("INSERT INTO driver (driver_id) VALUES (%s)", (user_id,))
+            cursor.execute(
+                "INSERT INTO rider (rider_id) VALUES (%s)", 
+                (user_id,)
+            )
+        elif user_type == "driver":
+            cursor.execute(
+                "INSERT INTO driver (driver_id, is_available) VALUES (%s, %s)", 
+                (user_id, True)
+            )
         
         conn.commit()
+        print(f"Registration successful for: {name}, ID: {user_id}")
         return {
             'success': True,
             'message': 'Registration successful',
             'user_id': user_id
         }
     except Exception as e:
+        print(f"Registration error: {e}")
+        if conn:
+            conn.rollback()
         return {
             'success': False,
             'message': f'Registration failed: {str(e)}'
         }
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
