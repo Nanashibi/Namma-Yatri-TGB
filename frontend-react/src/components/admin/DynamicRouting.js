@@ -31,15 +31,6 @@ const DynamicRouting = () => {
     googleMapsApiKey,
   });
 
-  // Sample data for peak hours - in a real app this would come from the API
-  const mockPeakHours = [
-    { hour: 8, formatted: '8 AM' },
-    { hour: 17, formatted: '5 PM' },
-    { hour: 9, formatted: '9 AM' },
-    { hour: 18, formatted: '6 PM' },
-    { hour: 19, formatted: '7 PM' }
-  ];
-
   const mockHighDemandWards = ['Koramangala', 'Indiranagar', 'Whitefield', 'Electronic City', 'HSR Layout'];
   
   // Mock ward locations for demonstration
@@ -56,33 +47,27 @@ const DynamicRouting = () => {
     'Yelahanka': { lat: 13.1004, lng: 77.5963 }
   };
 
-  // Mock routing data
-  const mockRouteData = [
-    { from: 'JP Nagar', to: 'Koramangala', path: ['JP Nagar', 'BTM Layout', 'Koramangala'] },
-    { from: 'Marathahalli', to: 'Indiranagar', path: ['Marathahalli', 'Indiranagar'] },
-    { from: 'Jayanagar', to: 'Electronic City', path: ['Jayanagar', 'BTM Layout', 'Electronic City'] },
-    { from: 'Yelahanka', to: 'Whitefield', path: ['Yelahanka', 'Indiranagar', 'Whitefield'] }
-  ];
-
   useEffect(() => {
-    // Fetch peak hours, high demand wards, and suggested routes
-    // In a real app, these would be API calls to the backend
     const fetchDemandData = async () => {
       try {
-        // Mock API responses
-        setPeakHours(mockPeakHours);
-        setHighDemandWards(mockHighDemandWards);
-        setLowDemandWards(['JP Nagar', 'Marathahalli', 'Jayanagar', 'BTM Layout', 'Yelahanka']);
-        setRoutes(mockRouteData);
+        const peakHoursResponse = await api.get('/peak_hours');
+        const highDemandWardsResponse = await api.get('/high_demand_wards');
+        const routesResponse = await api.get('/optimal_routes');
 
-        // Generate map routes for visualization
-        const routePaths = mockRouteData.map(route => {
-          return {
-            from: route.from,
-            to: route.to,
-            path: route.path.map(ward => mockWardLocations[ward])
-          };
-        });
+        setPeakHours(peakHoursResponse.data.peak_hours);
+        setHighDemandWards(highDemandWardsResponse.data.high_demand_wards);
+        setLowDemandWards(['JP Nagar', 'Marathahalli', 'Jayanagar', 'BTM Layout', 'Yelahanka']); // Example low demand wards
+        setRoutes(Object.entries(routesResponse.data.routes).map(([from, path]) => ({
+          from,
+          to: path[path.length - 1],
+          path
+        })));
+
+        const routePaths = Object.entries(routesResponse.data.routes).map(([from, path]) => ({
+          from,
+          to: path[path.length - 1],
+          path: path.map(ward => mockWardLocations[ward])
+        }));
         setMapRoutes(routePaths);
       } catch (error) {
         console.error("Error fetching demand data:", error);
@@ -97,17 +82,15 @@ const DynamicRouting = () => {
   }, []);
 
   // Handle driver vote submission
-  const handleVoteSubmit = (e) => {
+  const handleVoteSubmit = async (e) => {
     e.preventDefault();
     if (!driverId) {
       setAlertMessage({ type: 'warning', message: 'Please enter your Driver ID' });
       return;
     }
 
-    // In a real app, this would call the backend API
     try {
-      // Mock API call
-      console.log(`Driver ${driverId} voted for price ${priceVote}`);
+      await api.post('/vote', { driver_id: driverId, vote: priceVote });
       setAlertMessage({
         type: 'success',
         message: 'Vote registered successfully!'
@@ -120,12 +103,17 @@ const DynamicRouting = () => {
     }
   };
 
-  // Get price adjustment factor
-  const handleGetAdjustment = () => {
-    // In a real app, this would call the backend API
-    // Mock response
-    const mockAdjustment = (Math.random() * 2 - 1).toFixed(2); // Random value between -1 and 1
-    setAdjustmentFactor(mockAdjustment);
+  const handleGetAdjustment = async () => {
+    try {
+      const response = await api.get('/price_adjustment');
+      setAdjustmentFactor(response.data.adjustment_factor);
+    } catch (error) {
+      console.error("Error fetching adjustment factor:", error);
+      setAlertMessage({
+        type: 'danger',
+        message: 'Failed to get adjustment factor. Please try again.'
+      });
+    }
   };
 
   const onMarkerClick = useCallback((wardName) => {

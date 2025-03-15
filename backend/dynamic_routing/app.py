@@ -7,7 +7,7 @@ import networkx as nx
 from sklearn.ensemble import RandomForestRegressor
 import os
 
-app = FastAPI()
+router=APIRouter()
 
 # Load demand data
 hourly_demand_path = os.path.join("..","..","datasets", "hourly_demand_data.csv")
@@ -34,7 +34,7 @@ class PriceVote(BaseModel):
     driver_id: str
     vote: str
 
-@app.get("/peak_hours")
+@router.get("/peak_hours")
 def get_peak_hours():
     demand_data["predicted_demand"] = demand_model.predict(demand_data[["hour", "day_of_week", "is_weekend", "searches", "searches_with_estimate", "searches_for_quotes", "searches_with_quotes"]])
     peak_hours = (
@@ -46,7 +46,7 @@ def get_peak_hours():
     peak_hours_formatted = [f"{hour % 12 or 12} {'AM' if hour < 12 else 'PM'}" for hour in peak_hours]
     return {"peak_hours": peak_hours_formatted}
 
-@app.get("/high_demand_wards")
+@router.get("/high_demand_wards")
 def get_high_demand_wards():
     demand_data["predicted_demand"] = demand_model.predict(demand_data[["hour", "day_of_week", "is_weekend", "searches", "searches_with_estimate", "searches_for_quotes", "searches_with_quotes"]])
     high_demand_wards = (
@@ -57,7 +57,7 @@ def get_high_demand_wards():
     )
     return {"high_demand_wards": high_demand_wards}
 
-@app.get("/optimal_routes")
+@router.get("/optimal_routes")
 def get_optimal_routes():
     G = nx.Graph()
     for _, row in od_flows.iterrows():
@@ -84,14 +84,14 @@ def get_optimal_routes():
 
     return {"routes": routes}
 
-@app.post("/vote")
+@router.post("/vote")
 def submit_vote(vote: PriceVote):
     vote_value = 1 if vote.vote == "Increase (+1)" else -1
     redis_client.hincrby("price_votes", "total_votes", vote_value)
     redis_client.hincrby("price_votes", "vote_count", 1)
     return {"message": "Vote Registered Successfully!"}
 
-@app.get("/price_adjustment")
+@router.get("/price_adjustment")
 def get_price_adjustment():
     total_votes = int(redis_client.hget("price_votes", "total_votes") or 0)
     vote_count = int(redis_client.hget("price_votes", "vote_count") or 1)  # Avoid division by zero
