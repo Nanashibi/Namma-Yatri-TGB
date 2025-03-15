@@ -1,0 +1,16 @@
+# Backend Dependencies
+fastapi==0.95.2
+uvicorn==0.22.0
+mysql-connector-python==8.0.33
+redis==4.5.5
+websockets==11.0.3
+kafka-python==2.0.2
+pydantic==1.10.7
+
+# Frontend Dependencies
+streamlit==1.24.0
+
+# External Integrations
+
+# Development Tools
+python-dotenv==1.0.0
