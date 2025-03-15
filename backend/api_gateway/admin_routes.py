@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from utils.db_utils import get_db_connection,verify_jwt_token
+from backend.utils.db_utils import get_db_connection,verify_jwt_token
 
 
 router = APIRouter()

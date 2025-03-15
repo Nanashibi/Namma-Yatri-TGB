@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from models import StatusUpdateRequest
-from utils.db_utils import get_driver_location, update_driver_location, generate_random_bengaluru_location, get_db_connection, verify_jwt_token
+from .models import StatusUpdateRequest
+from backend.utils.db_utils import get_driver_location, update_driver_location, generate_random_bengaluru_location, get_db_connection, verify_jwt_token
 
 router = APIRouter()
 

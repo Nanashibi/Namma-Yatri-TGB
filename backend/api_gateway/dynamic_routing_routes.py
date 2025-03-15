@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 import pandas as pd
 import numpy as np
 import networkx as nx
-from utils.db_utils import get_db_connection, verify_jwt_token
-from utils.auth_utils import demand_model, demand_data, G, redis_client
-from models import PriceVoteRequest
+from backend.utils.db_utils import get_db_connection, verify_jwt_token
+from backend.utils.auth_utils import demand_model, demand_data, G, redis_client
+from .models import PriceVoteRequest
 
 router = APIRouter()
 

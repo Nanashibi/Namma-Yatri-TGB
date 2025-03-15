@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from models import CustomerRequest
-from utils.db_utils import get_customer_location, update_customer_location, generate_random_bengaluru_location, get_nearest_driver, book_ride_with_coords, verify_jwt_token
+from .models import CustomerRequest
+from backend.utils.db_utils import get_customer_location, update_customer_location, generate_random_bengaluru_location, get_nearest_driver, book_ride_with_coords, verify_jwt_token
 
 router = APIRouter()
 

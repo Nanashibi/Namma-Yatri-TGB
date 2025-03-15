@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from models import LoginRequest, RegisterRequest
-from utils.db_utils import authenticate_user, register_user, verify_jwt_token
+from .models import LoginRequest, RegisterRequest
+from backend.utils.db_utils import authenticate_user, register_user, verify_jwt_token
 
 router = APIRouter()
 

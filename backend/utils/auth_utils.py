@@ -1,6 +1,6 @@
 from typing import Optional
 from fastapi import Header, HTTPException, status
-from db_utils import verify_jwt_token
+from .db_utils import verify_jwt_token
 import redis
 
 # Dependency for token verification
@@ -47,3 +47,15 @@ except:
             return '0'
     
     redis_client = MockRedis()
+
+# Define and export demand_model
+demand_model = ...  # Add the actual model initialization code here
+
+# Define and export demand_data
+demand_data = ...  # Add the actual data initialization code here
+
+# Define and export G (graph)
+G = ...  # Add the actual graph initialization code here
+
+# Define and export redis_client
+redis_client = ...  # Add the actual Redis client initialization code here
