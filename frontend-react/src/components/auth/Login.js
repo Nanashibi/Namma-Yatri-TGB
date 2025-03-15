@@ -16,8 +16,8 @@ const Login = () => {
   // Redirect if already logged in
   React.useEffect(() => {
     if (currentUser) {
-      if (currentUser.user_type === 'rider') {
-        navigate('/rider-dashboard');
+      if (currentUser.user_type === 'customer') {
+        navigate('/customer-dashboard');
       } else if (currentUser.user_type === 'driver') {
         navigate('/driver-dashboard');
       } else if (currentUser.user_type === 'admin') {
@@ -34,8 +34,8 @@ const Login = () => {
       const userData = await login(email, password);
       
       // Redirect based on user type
-      if (userData.user.user_type === 'rider') {
-        navigate('/rider-dashboard');
+      if (userData.user.user_type === 'customer') {
+        navigate('/customer-dashboard');
       } else if (userData.user.user_type === 'driver') {
         navigate('/driver-dashboard');
       } else if (userData.user.user_type === 'admin') {

@@ -15,5 +15,5 @@ echo All services started successfully!
 echo API Documentation available at: http://localhost:5000/docs
 echo Test accounts:
 echo - Admin: admin@nammayatri.com / admin123
-echo - Rider: rider@example.com / password
+echo - customer: customer@example.com / password
 echo - Driver: driver@example.com / password

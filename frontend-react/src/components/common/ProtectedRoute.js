@@ -18,8 +18,8 @@ const ProtectedRoute = ({ children, userType }) => {
   // Check if the user has the required user type (if specified)
   if (userType && currentUser.user_type !== userType) {
     // User is not authorized for this route, redirect to their dashboard
-    if (currentUser.user_type === 'rider') {
-      return <Navigate to="/rider-dashboard" />;
+    if (currentUser.user_type === 'customer') {
+      return <Navigate to="/customer-dashboard" />;
     } else if (currentUser.user_type === 'driver') {
       return <Navigate to="/driver-dashboard" />;
     } else if (currentUser.user_type === 'admin') {

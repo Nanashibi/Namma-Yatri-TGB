@@ -3,7 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './contexts/AuthContext';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
-import RiderDashboard from './components/rider/RiderDashboard';
+// Fix the import path for CustomerDashboard
+import CustomerDashboard from './components/customer/CustomerDashboard';
 import DriverDashboard from './components/driver/DriverDashboard';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ProtectedRoute from './components/common/ProtectedRoute';
@@ -20,10 +21,10 @@ function App() {
             <Route path="/auth" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route 
-              path="/rider-dashboard" 
+              path="/customer-dashboard" 
               element={
-                <ProtectedRoute userType="rider">
-                  <RiderDashboard />
+                <ProtectedRoute userType="customer">
+                  <CustomerDashboard />
                 </ProtectedRoute>
               } 
             />

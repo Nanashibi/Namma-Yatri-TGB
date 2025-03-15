@@ -31,7 +31,7 @@ def setup_database():
         print("Database setup successfully!")
         print("Test accounts created:")
         print("- Admin: admin@nammayatri.com / admin123")
-        print("- Rider: rider@example.com / password")
+        print("- customer: customer@example.com / password")
         print("- Driver: driver@example.com / password")
         
     except mysql.connector.Error as e:

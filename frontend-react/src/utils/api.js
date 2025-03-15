@@ -47,9 +47,9 @@ if (process.env.NODE_ENV === 'development' && process.env.REACT_APP_USE_MOCK_API
   const mockUsers = [
     { 
       user_id: 1, 
-      name: 'Test Rider', 
-      user_type: 'rider', 
-      email: 'rider@example.com',
+      name: 'Test Customer', 
+      user_type: 'customer', 
+      email: 'customer@example.com',
       password: 'password'
     },
     { 

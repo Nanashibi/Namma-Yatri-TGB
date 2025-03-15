@@ -23,8 +23,8 @@ const Navbar = () => {
         <BootstrapNavbar.Toggle aria-controls="navbar-nav" />
         <BootstrapNavbar.Collapse id="navbar-nav">
           <Nav className="me-auto">
-            {currentUser && currentUser.user_type === 'rider' && (
-              <Nav.Link as={Link} to="/rider-dashboard">Dashboard</Nav.Link>
+            {currentUser && currentUser.user_type === 'customer' && (
+              <Nav.Link as={Link} to="/customer-dashboard">Dashboard</Nav.Link>
             )}
             {currentUser && currentUser.user_type === 'driver' && (
               <Nav.Link as={Link} to="/driver-dashboard">Dashboard</Nav.Link>

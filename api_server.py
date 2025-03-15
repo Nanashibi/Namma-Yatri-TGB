@@ -7,7 +7,7 @@ import uvicorn
 import os
 from utils.db_utils import (
     authenticate_user, register_user, verify_jwt_token,
-    get_rider_location, update_rider_location, generate_random_bengaluru_location,
+    get_customer_location, update_customer_location, generate_random_bengaluru_location,
     get_driver_location, update_driver_location, get_nearest_driver, book_ride,
     get_db_connection
 )
@@ -38,7 +38,7 @@ class RegisterRequest(BaseModel):
     password: str
     user_type: str
 
-class RideRequest(BaseModel):
+class Customerequest(BaseModel):
     destination: str
 
 class StatusUpdateRequest(BaseModel):
@@ -114,17 +114,17 @@ async def register(request: RegisterRequest):
 async def verify_session(user_data: dict = Depends(verify_token)):
     return {'user': user_data}
 
-# Rider routes
-@app.get("/api/riders/{rider_id}/location")
-async def get_rider_location_api(rider_id: int, user_data: dict = Depends(verify_token)):
+# Customer routes
+@app.get("/api/customers/{customer_id}/location")
+async def get_customer_location_api(customer_id: int, user_data: dict = Depends(verify_token)):
     # Verify the user is requesting their own data
-    if user_data['user_id'] != rider_id and user_data['user_type'] != 'admin':
+    if user_data['user_id'] != customer_id and user_data['user_type'] != 'admin':
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Unauthorized"
         )
     
-    location = get_rider_location(rider_id)
+    location = get_customer_location(customer_id)
     if location:
         return location
     else:
@@ -133,18 +133,18 @@ async def get_rider_location_api(rider_id: int, user_data: dict = Depends(verify
             detail="Location not found"
         )
 
-@app.post("/api/riders/{rider_id}/refresh-location")
-async def refresh_rider_location(rider_id: int, user_data: dict = Depends(verify_token)):
+@app.post("/api/customers/{customer_id}/refresh-location")
+async def refresh_customer_location(customer_id: int, user_data: dict = Depends(verify_token)):
     # Verify the user is updating their own data
-    if user_data['user_id'] != rider_id and user_data['user_type'] != 'admin':
+    if user_data['user_id'] != customer_id and user_data['user_type'] != 'admin':
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Unauthorized"
         )
     
     new_location = generate_random_bengaluru_location()
-    result = update_rider_location(
-        rider_id, 
+    result = update_customer_location(
+        customer_id, 
         new_location["location_name"], 
         new_location["latitude"], 
         new_location["longitude"]
@@ -158,17 +158,17 @@ async def refresh_rider_location(rider_id: int, user_data: dict = Depends(verify
             detail="Failed to update location"
         )
 
-@app.post("/api/riders/{rider_id}/request-ride")
-async def request_ride(rider_id: int, request: RideRequest, user_data: dict = Depends(verify_token)):
+@app.post("/api/customers/{customer_id}/request-ride")
+async def request_ride(customer_id: int, request: Customerequest, user_data: dict = Depends(verify_token)):
     # Verify the user is requesting their own ride
-    if user_data['user_id'] != rider_id:
+    if user_data['user_id'] != customer_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Unauthorized"
         )
     
     # Find nearest driver
-    drivers = get_nearest_driver(rider_id)
+    drivers = get_nearest_driver(customer_id)
     if not drivers:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -177,7 +177,7 @@ async def request_ride(rider_id: int, request: RideRequest, user_data: dict = De
     
     # Book with the first available driver
     driver_id = drivers[0]['driver_id']
-    ride_id = book_ride(rider_id, driver_id)
+    ride_id = book_ride(customer_id, driver_id)
     
     if ride_id:
         return {
@@ -318,8 +318,8 @@ async def get_all_drivers(user_data: dict = Depends(verify_token)):
         cursor.close()
         conn.close()
 
-@app.get("/api/admin/riders")
-async def get_all_riders(user_data: dict = Depends(verify_token)):
+@app.get("/api/admin/customers")
+async def get_all_customers(user_data: dict = Depends(verify_token)):
     # Verify the user is an admin
     if user_data['user_type'] != 'admin':
         raise HTTPException(
@@ -332,14 +332,14 @@ async def get_all_riders(user_data: dict = Depends(verify_token)):
     
     try:
         cursor.execute("""
-            SELECT r.rider_id, u.name, u.email, 
-            (SELECT COUNT(*) FROM rides WHERE rider_id = r.rider_id) as trip_count
-            FROM rider r
-            JOIN users u ON r.rider_id = u.user_id
+            SELECT r.customer_id, u.name, u.email, 
+            (SELECT COUNT(*) FROM rides WHERE customer_id = r.customer_id) as trip_count
+            FROM customer r
+            JOIN users u ON r.customer_id = u.user_id
         """)
-        riders = cursor.fetchall()
+        customers = cursor.fetchall()
         
-        return riders
+        return customers
     finally:
         cursor.close()
         conn.close()
@@ -360,12 +360,12 @@ async def get_all_trips(user_data: dict = Depends(verify_token)):
         cursor.execute("""
             SELECT 
                 r.ride_id as trip_id, 
-                ur.name as rider_name, 
+                ur.name as customer_name, 
                 ud.name as driver_name,
                 r.status,
                 r.created_at as date
             FROM rides r
-            JOIN users ur ON r.rider_id = ur.user_id
+            JOIN users ur ON r.customer_id = ur.user_id
             JOIN users ud ON r.driver_id = ud.user_id
             ORDER BY r.created_at DESC
             LIMIT 50

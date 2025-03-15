@@ -128,25 +128,25 @@ def ensure_location_data(location_data):
         
     return location_data
 
-def get_rider_location(rider_id):
-    """Get a rider's current location"""
+def get_customer_location(customer_id):
+    """Get a customer's current location"""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
     try:
         cursor.execute(
-            "SELECT location, latitude, longitude FROM rider WHERE rider_id = %s", 
-            (rider_id,)
+            "SELECT location, latitude, longitude FROM customer WHERE customer_id = %s", 
+            (customer_id,)
         )
         location_data = cursor.fetchone()
         
         if not location_data:
-            # If rider has no location, generate and save a random one
+            # If customer has no location, generate and save a random one
             location_data = generate_random_bengaluru_location()
             cursor.execute(
-                "INSERT INTO rider (rider_id, location, latitude, longitude) VALUES (%s, %s, %s, %s) "
+                "INSERT INTO customer (customer_id, location, latitude, longitude) VALUES (%s, %s, %s, %s) "
                 "ON DUPLICATE KEY UPDATE location = %s, latitude = %s, longitude = %s",
-                (rider_id, location_data["location_name"], location_data["latitude"], location_data["longitude"],
+                (customer_id, location_data["location_name"], location_data["latitude"], location_data["longitude"],
                  location_data["location_name"], location_data["latitude"], location_data["longitude"])
             )
             conn.commit()
@@ -184,20 +184,20 @@ def get_driver_location(driver_id):
         cursor.close()
         conn.close()
 
-def update_rider_location(rider_id, location_name, latitude, longitude):
-    """Update a rider's current location"""
+def update_customer_location(customer_id, location_name, latitude, longitude):
+    """Update a customer's current location"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
         cursor.execute(
-            "UPDATE rider SET location = %s, latitude = %s, longitude = %s WHERE rider_id = %s",
-            (location_name, latitude, longitude, rider_id)
+            "UPDATE customer SET location = %s, latitude = %s, longitude = %s WHERE customer_id = %s",
+            (location_name, latitude, longitude, customer_id)
         )
         conn.commit()
         return True
     except Exception as e:
-        print(f"Error updating rider location: {e}")
+        print(f"Error updating customer location: {e}")
         return False
     finally:
         cursor.close()
@@ -222,19 +222,19 @@ def update_driver_location(driver_id, location_name, latitude, longitude):
         cursor.close()
         conn.close()
 
-def get_nearest_driver(rider_id):
+def get_nearest_driver(customer_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
     try:
-        # Get rider location
+        # Get customer location
         cursor.execute(
-            "SELECT latitude, longitude FROM rider WHERE rider_id = %s", 
-            (rider_id,)
+            "SELECT latitude, longitude FROM customer WHERE customer_id = %s", 
+            (customer_id,)
         )
-        rider_location = cursor.fetchone()
+        customer_location = cursor.fetchone()
         
-        if not rider_location:
+        if not customer_location:
             return None
         
         # Get available drivers
@@ -243,7 +243,7 @@ def get_nearest_driver(rider_id):
             "SQRT(POW(69.1 * (latitude - %s), 2) + POW(69.1 * (%s - longitude) * COS(latitude / 57.3), 2)) AS distance "
             "FROM driver WHERE is_available = TRUE "
             "ORDER BY distance ASC LIMIT 5",
-            (rider_location["latitude"], rider_location["longitude"])
+            (customer_location["latitude"], customer_location["longitude"])
         )
         nearby_drivers = cursor.fetchall()
         
@@ -252,19 +252,19 @@ def get_nearest_driver(rider_id):
         cursor.close()
         conn.close()
 
-def book_ride(rider_id, driver_id):
+def book_ride(customer_id, driver_id):
     """Book a ride with a driver"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        cursor.execute("SELECT ride_id FROM rides WHERE rider_id = %s AND status = 'pending'", (rider_id,))
+        cursor.execute("SELECT ride_id FROM rides WHERE customer_id = %s AND status = 'pending'", (customer_id,))
         if cursor.fetchone():
             return None
         
-        cursor.execute("INSERT INTO rides (rider_id, driver_id) VALUES (%s, %s)", (rider_id, driver_id))
+        cursor.execute("INSERT INTO rides (customer_id, driver_id) VALUES (%s, %s)", (customer_id, driver_id))
         conn.commit()
-        cursor.execute("SELECT ride_id FROM rides WHERE rider_id = %s ORDER BY created_at DESC LIMIT 1", (rider_id,))
+        cursor.execute("SELECT ride_id FROM rides WHERE customer_id = %s ORDER BY created_at DESC LIMIT 1", (customer_id,))
         ride_id = cursor.fetchone()[0]
         return ride_id
     except Exception as e:
@@ -364,10 +364,10 @@ def register_user(name, email, password, user_type):
         )
         user_id = cursor.lastrowid
         
-        # Add entry to rider or driver table
-        if user_type == "rider":
+        # Add entry to customer or driver table
+        if user_type == "customer":
             cursor.execute(
-                "INSERT INTO rider (rider_id) VALUES (%s)", 
+                "INSERT INTO customer (customer_id) VALUES (%s)", 
                 (user_id,)
             )
         elif user_type == "driver":

@@ -8,14 +8,14 @@ CREATE TABLE users (
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    user_type ENUM('rider', 'driver', 'admin') NOT NULL,
+    user_type ENUM('customer', 'driver', 'admin') NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create the 'rides' table
 CREATE TABLE rides (
     ride_id INT AUTO_INCREMENT PRIMARY KEY,
-    rider_id INT NOT NULL,
+    customer_id INT NOT NULL,
     driver_id INT,
     pickup_location VARCHAR(255) NOT NULL,
     dropoff_location VARCHAR(255) NOT NULL,
@@ -27,17 +27,16 @@ CREATE TABLE rides (
     status ENUM('pending', 'accepted', 'completed', 'cancelled') DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (rider_id) REFERENCES users(user_id),
+    FOREIGN KEY (customer_id) REFERENCES users(user_id),
     FOREIGN KEY (driver_id) REFERENCES users(user_id)
 );
 
--- Create the 'rider' table
-CREATE TABLE rider (
-    rider_id INT PRIMARY KEY,
+CREATE TABLE customer (
+    customer_id INT PRIMARY KEY,
     location VARCHAR(255),
     latitude DECIMAL(10, 8) DEFAULT 12.9716,
     longitude DECIMAL(11, 8) DEFAULT 77.5946,
-    FOREIGN KEY (rider_id) REFERENCES users(user_id)
+    FOREIGN KEY (customer_id) REFERENCES users(user_id)
 );
 
 -- Create the 'driver' table
@@ -54,10 +53,10 @@ CREATE TABLE driver (
 INSERT INTO users (name, email, password_hash, user_type)
 VALUES ('Admin User', 'admin@nammayatri.com', 'admin123', 'admin');
 
--- Add a test rider
+-- Add a test customer
 INSERT INTO users (name, email, password_hash, user_type)
-VALUES ('Test Rider', 'rider@example.com', 'password', 'rider');
-INSERT INTO rider (rider_id) 
+VALUES ('Test Customer', 'customer@example.com', 'password', 'customer');
+INSERT INTO customer (customer_id) 
 VALUES (LAST_INSERT_ID());
 
 -- Add a test driver

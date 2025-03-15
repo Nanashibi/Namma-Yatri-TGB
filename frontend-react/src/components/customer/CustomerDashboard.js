@@ -15,7 +15,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
 });
 
-const RiderDashboard = () => {
+const CustomerDashboard = () => {
   const { currentUser } = useContext(AuthContext);
   const [location, setLocation] = useState(null);
   const [destination, setDestination] = useState('');
@@ -26,7 +26,7 @@ const RiderDashboard = () => {
   useEffect(() => {
     const fetchLocation = async () => {
       try {
-        const response = await api.get(`/riders/${currentUser.user_id}/location`);
+        const response = await api.get(`/customers/${currentUser.user_id}/location`);
         setLocation(response.data);
         setLoading(false);
       } catch (error) {
@@ -41,7 +41,7 @@ const RiderDashboard = () => {
   const handleRefreshLocation = async () => {
     try {
       setLoading(true);
-      const response = await api.post(`/riders/${currentUser.user_id}/refresh-location`);
+      const response = await api.post(`/customers/${currentUser.user_id}/refresh-location`);
       setLocation(response.data);
       setMessage({ type: 'success', text: 'Location updated successfully!' });
       setTimeout(() => setMessage(null), 3000);
@@ -62,7 +62,7 @@ const RiderDashboard = () => {
     
     setSearchingDrivers(true);
     try {
-      await api.post(`/riders/${currentUser.user_id}/request-ride`, { 
+      await api.post(`/customers/${currentUser.user_id}/request-ride`, { 
         destination 
       });
       setMessage({ type: 'success', text: 'Searching for drivers near you...' });
@@ -77,7 +77,7 @@ const RiderDashboard = () => {
     <>
       <Navbar />
       <Container className="mt-4">
-        <h1>Rider Dashboard</h1>
+        <h1>Customer Dashboard</h1>
         <p>Welcome, {currentUser?.name}! Book your ride here.</p>
         
         {message && <Alert variant={message.type}>{message.text}</Alert>}
@@ -172,4 +172,4 @@ const RiderDashboard = () => {
   );
 };
 
-export default RiderDashboard;
+export default CustomerDashboard;
