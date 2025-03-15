@@ -1,3 +1,7 @@
+DROP DATABASE IF EXISTS namma_yatri_db;
+CREATE DATABASE namma_yatri_db;
+USE namma_yatri_db;
+
 CREATE TABLE users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -18,5 +22,22 @@ CREATE TABLE rides (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (rider_id) REFERENCES users(user_id),
+    FOREIGN KEY (driver_id) REFERENCES users(user_id)
+);
+
+CREATE TABLE rider (
+    rider_id INT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    username VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    FOREIGN KEY (rider_id) REFERENCES users(user_id)
+);
+
+CREATE TABLE driver (
+    driver_id INT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    username VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    location VARCHAR(255),
     FOREIGN KEY (driver_id) REFERENCES users(user_id)
 );
