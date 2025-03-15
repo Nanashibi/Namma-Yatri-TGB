@@ -1,7 +1,8 @@
-DROP DATABASE IF EXISTS namma_yatri_db;
-CREATE DATABASE namma_yatri_db;
-USE namma_yatri_db;
+DROP DATABASE IF EXISTS namma_yatri_db;  -- Drop the existing database if it exists
+CREATE DATABASE namma_yatri_db;  -- Create a new database
+USE namma_yatri_db;  -- Select the newly created database
 
+-- Create the 'users' table
 CREATE TABLE users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -11,6 +12,7 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create the 'rides' table
 CREATE TABLE rides (
     ride_id INT AUTO_INCREMENT PRIMARY KEY,
     customer_id INT NOT NULL,
@@ -37,6 +39,7 @@ CREATE TABLE customer (
     FOREIGN KEY (customer_id) REFERENCES users(user_id)
 );
 
+-- Create the 'driver' table
 CREATE TABLE driver (
     driver_id INT PRIMARY KEY,
     location VARCHAR(255),
