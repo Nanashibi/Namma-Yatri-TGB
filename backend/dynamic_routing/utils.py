@@ -1,7 +1,7 @@
 import os
 import time
-from math import radians, sin, cos, sqrt, atan2
-from db import get_available_drivers
+from math import radians, sin, cos, sqrt, atan
+from db import get_available_drivers, get_driver, update_driver
 
 def haversine(lat1, lon1, lat2, lon2):
     """Calculate the great-circle distance between two points in kilometers."""

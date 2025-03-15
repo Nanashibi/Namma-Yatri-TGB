@@ -90,7 +90,7 @@ const DynamicRouting = () => {
     }
 
     try {
-      await api.post('/vote', { driver_id: driverId, vote: priceVote });
+      await api.post('dynamic_routing/vote', { driver_id: driverId, vote: priceVote });
       setAlertMessage({
         type: 'success',
         message: 'Vote registered successfully!'

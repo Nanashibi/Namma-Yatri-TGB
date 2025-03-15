@@ -15,6 +15,18 @@ class RouteResponse(BaseModel):
     end_lon: float
     status: str
 
+class Driver(BaseModel):
+    driver_id: int
+    latitude: float
+    longitude: float
+    is_available: bool
+    rating: Optional[float]
+    reviews: Optional[List[str]]
+    created_at: Optional[str]
+    updated_at: Optional[str]
+    is_deleted: Optional[bool]
+    deleted_at: Optional[str]
+
 class Route(BaseModel):
     route_id: int
     start_lat: float
@@ -41,17 +53,7 @@ class Route(BaseModel):
     reviewed_at: Optional[str]
     driver: Optional[Driver]
 
-class Driver(BaseModel):
-    driver_id: int
-    latitude: float
-    longitude: float
-    is_available: bool
-    rating: Optional[float]
-    reviews: Optional[List[str]]
-    created_at: Optional[str]
-    updated_at: Optional[str]
-    is_deleted: Optional[bool]
-    deleted_at: Optional[str]
+
 
 class DriverLocation(BaseModel):
     driver_id: int

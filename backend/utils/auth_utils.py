@@ -49,13 +49,13 @@ except:
     redis_client = MockRedis()
 
 # Define and export demand_model
-demand_model = ...  # Add the actual model initialization code here
+demand_model = "Your model initialization code here"
 
 # Define and export demand_data
-demand_data = ...  # Add the actual data initialization code here
+demand_data = "Your data initialization code here"
 
 # Define and export G (graph)
-G = ...  # Add the actual graph initialization code here
+G = "Your graph initialization code here"
 
 # Define and export redis_client
-redis_client = ...  # Add the actual Redis client initialization code here
+redis_client = redis.StrictRedis(host='localhost', port=6379, decode_responses=True) if not isinstance(redis_client, MockRedis) else redis_client
