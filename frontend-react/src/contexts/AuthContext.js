@@ -6,21 +6,33 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
     // Check if the user is already logged in via session token in localStorage
     const checkAuthStatus = async () => {
+      setLoading(true);
       const token = localStorage.getItem('token');
+      
       if (token) {
         try {
+          console.log('Verifying session with token...');
           const response = await api.get('/auth/verify-session');
+          console.log('Session verification response:', response.data);
           setCurrentUser(response.data.user);
         } catch (error) {
           console.error('Session validation failed:', error);
+          // Clear any invalid tokens
           localStorage.removeItem('token');
+          setCurrentUser(null);
         }
+      } else {
+        console.log('No auth token found in localStorage');
+        setCurrentUser(null);
       }
+      
       setLoading(false);
+      setAuthChecked(true);
     };
 
     checkAuthStatus();
@@ -28,11 +40,21 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
+      console.log('Login attempt for:', email);
       const response = await api.post('/auth/login', { email, password });
+      console.log('Login response:', response.data);
+      
+      // Check if the response contains the expected data
+      if (!response.data || !response.data.token || !response.data.user) {
+        throw new Error('Invalid response format from server');
+      }
+      
       localStorage.setItem('token', response.data.token);
       setCurrentUser(response.data.user);
       return response.data;
     } catch (error) {
+      console.error('Login error:', error);
+      console.error('Error response:', error.response?.data);
       throw error.response?.data || { message: 'Login failed' };
     }
   };
@@ -62,14 +84,23 @@ export const AuthProvider = ({ children }) => {
   const value = {
     currentUser,
     loading,
+    authChecked,
     login,
     register,
-    logout
+    logout,
+    setCurrentUser
   };
 
+  // Only render children once the initial auth check is complete
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {authChecked ? children : (
+        <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
+          <div className="spinner-border" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      )}
     </AuthContext.Provider>
   );
 };

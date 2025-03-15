@@ -274,6 +274,108 @@ def book_ride(customer_id, driver_id):
         cursor.close()
         conn.close()
 
+def book_ride_with_coords(customer_id, driver_id, destination, pickup_lat=None, pickup_lng=None, dest_lat=None, dest_lng=None):
+    """Book a ride with a driver, including coordinates"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Check if there's already a pending ride for this customer
+        cursor.execute("SELECT ride_id FROM rides WHERE customer_id = %s AND status = 'pending'", (customer_id,))
+        if cursor.fetchone():
+            return None  # Already has a pending ride
+        
+        # Get customer's pickup location if not provided
+        if pickup_lat is None or pickup_lng is None:
+            cursor.execute(
+                "SELECT latitude, longitude, location FROM customer WHERE customer_id = %s", 
+                (customer_id,)
+            )
+            customer_loc = cursor.fetchone()
+            if customer_loc:
+                pickup_lat = customer_loc[0]
+                pickup_lng = customer_loc[1]
+                pickup_location = customer_loc[2] or "Unknown"
+            else:
+                pickup_location = "Unknown"
+        else:
+            pickup_location = "Custom Pickup"
+        
+        # Insert ride with coordinates
+        cursor.execute(
+            """
+            INSERT INTO rides (
+                customer_id, 
+                driver_id, 
+                pickup_location, 
+                dropoff_location,
+                pickup_lat,
+                pickup_lon,
+                dropoff_lat,
+                dropoff_lon,
+                fare,
+                status
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending')
+            """, 
+            (
+                customer_id, 
+                driver_id, 
+                pickup_location, 
+                destination,
+                pickup_lat,
+                pickup_lng,
+                dest_lat,
+                dest_lng,
+                calculate_fare(pickup_lat, pickup_lng, dest_lat, dest_lng)
+            )
+        )
+        conn.commit()
+        
+        # Get the ID of the newly created ride
+        cursor.execute(
+            "SELECT ride_id FROM rides WHERE customer_id = %s ORDER BY created_at DESC LIMIT 1", 
+            (customer_id,)
+        )
+        ride_id = cursor.fetchone()[0]
+        return ride_id
+    except Exception as e:
+        print(f"Error booking ride: {e}")
+        conn.rollback()
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+
+def calculate_fare(pickup_lat, pickup_lng, dest_lat, dest_lng):
+    """Calculate the fare based on distance between coordinates"""
+    # If we don't have coordinates, return a default fare
+    if None in (pickup_lat, pickup_lng, dest_lat, dest_lng):
+        return 150.00  # Default fare
+    
+    # Simple distance-based calculation (you can make this more sophisticated)
+    from math import radians, sin, cos, sqrt, atan2
+    
+    # Convert to radians
+    lat1, lon1 = radians(float(pickup_lat)), radians(float(pickup_lng))
+    lat2, lon2 = radians(float(dest_lat)), radians(float(dest_lng))
+    
+    # Haversine formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+    
+    # Earth's radius in km
+    radius = 6371
+    distance = radius * c
+    
+    # Base fare + distance-based component
+    base_fare = 50.0
+    per_km_rate = 12.0
+    fare = base_fare + (distance * per_km_rate)
+    
+    return round(fare, 2)
+
 # JWT Authentication functions for React
 def generate_jwt_token(user_data):
     """Generate a JWT token for the user"""

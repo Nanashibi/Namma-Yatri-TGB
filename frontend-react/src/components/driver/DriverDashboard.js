@@ -1,19 +1,14 @@
-import React, { useState, useContext, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Alert, Badge } from 'react-bootstrap';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import React, { useState, useContext, useEffect, useCallback, useMemo } from 'react';
+import { Container, Row, Col, Card, Button, Alert, Badge, Spinner } from 'react-bootstrap';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { AuthContext } from '../../contexts/AuthContext';
 import Navbar from '../common/Navbar';
 import api from '../../utils/api';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
 
-// Fix for Leaflet marker icon issue in React
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
-  iconUrl: require('leaflet/dist/images/marker-icon.png'),
-  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
-});
+const mapContainerStyle = {
+  width: '100%',
+  height: '400px',
+};
 
 const DriverDashboard = () => {
   const { currentUser } = useContext(AuthContext);
@@ -22,36 +17,78 @@ const DriverDashboard = () => {
   const [message, setMessage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [showInfoWindow, setShowInfoWindow] = useState(false);
 
-  useEffect(() => {
-    const fetchDriverData = async () => {
-      try {
-        // Get driver location
-        const locationResponse = await api.get(`/drivers/${currentUser.user_id}/location`);
-        setLocation(locationResponse.data);
-        
-        // Get driver availability status
-        const statusResponse = await api.get(`/drivers/${currentUser.user_id}/status`);
-        setIsAvailable(statusResponse.data.is_available);
-        
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching driver data:', error);
-        setLoading(false);
+  // Google Maps API key from environment variables
+  const googleMapsApiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || '';
+  
+  // Default center in Bengaluru
+  const defaultCenter = useMemo(() => ({ lat: 12.9716, lng: 77.5946 }), []);
+
+  // Load Google Maps API with useJsApiLoader hook
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey,
+  });
+
+  // Function to fetch driver data
+  const fetchDriverData = useCallback(async () => {
+    if (!currentUser || !currentUser.user_id) return;
+    
+    try {
+      setLoading(true);
+      console.log(`Fetching data for driver ID: ${currentUser.user_id}`);
+      
+      // Get driver location
+      const locationResponse = await api.get(`/drivers/${currentUser.user_id}/location`);
+      console.log("Location data received:", locationResponse.data);
+      
+      if (locationResponse.data && locationResponse.data.latitude && locationResponse.data.longitude) {
+        setLocation({
+          ...locationResponse.data,
+          // Ensure location data is properly typed as numbers
+          latitude: Number(locationResponse.data.latitude),
+          longitude: Number(locationResponse.data.longitude)
+        });
       }
-    };
-
-    fetchDriverData();
+      
+      // Get driver availability status
+      const statusResponse = await api.get(`/drivers/${currentUser.user_id}/status`);
+      console.log("Status data received:", statusResponse.data);
+      setIsAvailable(statusResponse.data.is_available);
+      
+    } catch (error) {
+      console.error('Error fetching driver data:', error);
+      setMessage({ type: 'danger', text: 'Failed to load driver data' });
+    } finally {
+      setLoading(false);
+    }
   }, [currentUser]);
+
+  // Initial data loading
+  useEffect(() => {
+    if (currentUser) {
+      fetchDriverData();
+    }
+  }, [currentUser, fetchDriverData]);
 
   const handleRefreshLocation = async () => {
     try {
       setLoading(true);
-      const locationResponse = await api.post(`/drivers/${currentUser.user_id}/refresh-location`);
-      setLocation(locationResponse.data);
+      const response = await api.post(`/drivers/${currentUser.user_id}/refresh-location`);
+      
+      if (response.data) {
+        setLocation({
+          location: response.data.location_name,
+          latitude: Number(response.data.latitude),
+          longitude: Number(response.data.longitude)
+        });
+      }
+      
       setMessage({ type: 'success', text: 'Location updated successfully!' });
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
+      console.error('Error refreshing location:', error);
       setMessage({ type: 'danger', text: 'Failed to update location' });
     } finally {
       setLoading(false);
@@ -77,6 +114,21 @@ const DriverDashboard = () => {
     }
   };
 
+  const onMarkerClick = useCallback(() => {
+    setShowInfoWindow(true);
+  }, []);
+
+  const onInfoWindowClose = useCallback(() => {
+    setShowInfoWindow(false);
+  }, []);
+
+  const mapCenter = useMemo(() => {
+    if (location && location.latitude && location.longitude) {
+      return { lat: Number(location.latitude), lng: Number(location.longitude) };
+    }
+    return defaultCenter;
+  }, [location, defaultCenter]);
+
   return (
     <>
       <Navbar />
@@ -94,12 +146,15 @@ const DriverDashboard = () => {
                 <Row>
                   <Col>
                     {loading ? (
-                      <p>Loading location data...</p>
+                      <div className="text-center">
+                        <Spinner animation="border" role="status" />
+                        <p className="mt-2">Loading driver data...</p>
+                      </div>
                     ) : location ? (
                       <>
                         <p><strong>Area:</strong> {location.location || 'Unknown'}</p>
-                        <p><strong>Latitude:</strong> {location.latitude || 'N/A'}</p>
-                        <p><strong>Longitude:</strong> {location.longitude || 'N/A'}</p>
+                        <p><strong>Latitude:</strong> {location.latitude.toFixed(6) || 'N/A'}</p>
+                        <p><strong>Longitude:</strong> {location.longitude.toFixed(6) || 'N/A'}</p>
                         <p>
                           <strong>Status:</strong>{' '}
                           <Badge bg={isAvailable ? 'success' : 'danger'}>
@@ -108,7 +163,7 @@ const DriverDashboard = () => {
                         </p>
                       </>
                     ) : (
-                      <p>Location data not available</p>
+                      <p>Location data not available. Please refresh your location.</p>
                     )}
                   </Col>
                 </Row>
@@ -118,14 +173,40 @@ const DriverDashboard = () => {
                   disabled={loading}
                   className="me-2"
                 >
-                  Refresh Location
+                  {loading ? (
+                    <>
+                      <Spinner 
+                        as="span" 
+                        animation="border" 
+                        size="sm" 
+                        role="status" 
+                        aria-hidden="true" 
+                      />
+                      <span className="ms-2">Loading...</span>
+                    </>
+                  ) : (
+                    'Refresh Location'
+                  )}
                 </Button>
                 <Button 
                   variant={isAvailable ? 'danger' : 'success'} 
                   onClick={handleUpdateAvailability}
                   disabled={updatingStatus}
                 >
-                  {isAvailable ? 'Go Offline' : 'Go Online'}
+                  {updatingStatus ? (
+                    <>
+                      <Spinner 
+                        as="span" 
+                        animation="border" 
+                        size="sm" 
+                        role="status" 
+                        aria-hidden="true" 
+                      />
+                      <span className="ms-2">Updating...</span>
+                    </>
+                  ) : (
+                    isAvailable ? 'Go Offline' : 'Go Online'
+                  )}
                 </Button>
               </Card.Body>
             </Card>
@@ -139,31 +220,68 @@ const DriverDashboard = () => {
           </Col>
           
           <Col md={6}>
-            {location && location.latitude && location.longitude ? (
-              <div style={{ height: '400px', width: '100%' }}>
-                <MapContainer 
-                  center={[location.latitude, location.longitude]} 
-                  zoom={14} 
-                  style={{ height: '100%', width: '100%' }}
-                >
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                  <Marker position={[location.latitude, location.longitude]}>
-                    <Popup>
-                      You are here: {location.location || 'Your location'}
-                    </Popup>
-                  </Marker>
-                </MapContainer>
-              </div>
-            ) : (
-              <Card style={{ height: '400px' }}>
-                <Card.Body className="d-flex align-items-center justify-content-center">
-                  <p>Map not available</p>
+            <Card style={{ height: '400px' }} className="overflow-hidden">
+              {loadError ? (
+                <Card.Body className="d-flex flex-column align-items-center justify-content-center">
+                  <p className="text-danger mb-3">Failed to load map: {loadError.message}</p>
+                  <Button variant="primary" onClick={() => window.location.reload()}>
+                    Reload Page
+                  </Button>
                 </Card.Body>
-              </Card>
-            )}
+              ) : !isLoaded ? (
+                <Card.Body className="d-flex justify-content-center align-items-center h-100">
+                  <Spinner animation="border" />
+                </Card.Body>
+              ) : (
+                <GoogleMap
+                  mapContainerStyle={mapContainerStyle}
+                  center={mapCenter}
+                  zoom={14}
+                  options={{
+                    streetViewControl: false,
+                    mapTypeControl: false
+                  }}
+                >
+                  {location && location.latitude && location.longitude && (
+                    <Marker
+                      position={{
+                        lat: Number(location.latitude),
+                        lng: Number(location.longitude)
+                      }}
+                      onClick={onMarkerClick}
+                      icon={{
+                        url: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+                      }}
+                    >
+                      {showInfoWindow && (
+                        <InfoWindow
+                          position={{
+                            lat: Number(location.latitude),
+                            lng: Number(location.longitude)
+                          }}
+                          onCloseClick={onInfoWindowClose}
+                        >
+                          <div>
+                            <h6>Your Location</h6>
+                            <p>{location.location || 'Current Position'}</p>
+                            <p>Status: {isAvailable ? 'Available' : 'Offline'}</p>
+                          </div>
+                        </InfoWindow>
+                      )}
+                    </Marker>
+                  )}
+                </GoogleMap>
+              )}
+              
+              {loading && isLoaded && (
+                <div 
+                  className="position-absolute d-flex justify-content-center align-items-center bg-white bg-opacity-75" 
+                  style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+                >
+                  <Spinner animation="border" />
+                </div>
+              )}
+            </Card>
           </Col>
         </Row>
       </Container>

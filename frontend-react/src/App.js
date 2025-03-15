@@ -3,12 +3,12 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './contexts/AuthContext';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
-// Fix the import path for CustomerDashboard
 import CustomerDashboard from './components/customer/CustomerDashboard';
 import DriverDashboard from './components/driver/DriverDashboard';
 import AdminDashboard from './components/admin/AdminDashboard';
 import DynamicRouting from './components/admin/DynamicRouting';
 import ProtectedRoute from './components/common/ProtectedRoute';
+import MapErrorBoundary from './components/common/MapErrorBoundary';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -25,7 +25,9 @@ function App() {
               path="/customer-dashboard" 
               element={
                 <ProtectedRoute userType="customer">
-                  <CustomerDashboard />
+                  <MapErrorBoundary>
+                    <CustomerDashboard />
+                  </MapErrorBoundary>
                 </ProtectedRoute>
               } 
             />
@@ -33,7 +35,9 @@ function App() {
               path="/driver-dashboard" 
               element={
                 <ProtectedRoute userType="driver">
-                  <DriverDashboard />
+                  <MapErrorBoundary>
+                    <DriverDashboard />
+                  </MapErrorBoundary>
                 </ProtectedRoute>
               } 
             />
@@ -49,7 +53,9 @@ function App() {
               path="/dynamic-routing" 
               element={
                 <ProtectedRoute userType="admin">
-                  <DynamicRouting />
+                  <MapErrorBoundary>
+                    <DynamicRouting />
+                  </MapErrorBoundary>
                 </ProtectedRoute>
               } 
             />
