@@ -17,6 +17,29 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         try {
           console.log('Verifying session with token...');
+          // For development with mock API, extract user data from token
+          if (process.env.NODE_ENV === 'development' && process.env.REACT_APP_USE_MOCK_API === 'true') {
+            const tokenParts = token.split('-');
+            if (tokenParts.length >= 3 && tokenParts[0] === 'mock') {
+              const userType = tokenParts[1];
+              const userId = tokenParts[2];
+              
+              // Set mock user based on token
+              setCurrentUser({
+                user_id: parseInt(userId),
+                name: userType === 'customer' ? 'Test Customer' : 
+                      userType === 'driver' ? 'Test Driver' : 'Admin User',
+                user_type: userType,
+                email: `${userType}@example.com`
+              });
+              console.log('Mock user session restored from token');
+              setLoading(false);
+              setAuthChecked(true);
+              return;
+            }
+          }
+          
+          // Real API call for non-mock environment
           const response = await api.get('/auth/verify-session');
           console.log('Session verification response:', response.data);
           setCurrentUser(response.data.user);
