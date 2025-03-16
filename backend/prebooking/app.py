@@ -44,7 +44,9 @@ async def prebook_ride(request: PrebookRideRequest):
             (request.customer_id, request.ward, request.pickup_time)
         )
         conn.commit()
-        ride_id = cursor.lastrowid  # Get the auto-incremented ride ID
+        ride_id = cursor.lastrowid  
+        if ride_id is None:
+            ride_id = 1  
     except mysql.connector.Error as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:

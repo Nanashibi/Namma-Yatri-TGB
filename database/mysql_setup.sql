@@ -51,7 +51,7 @@ CREATE TABLE driver (
 
 -- Create the 'prebooked_rides' table
 CREATE TABLE IF NOT EXISTS prebooked_rides (
-    ride_id VARCHAR(36) PRIMARY KEY,
+    ride_id INT AUTO_INCREMENT PRIMARY KEY, 
     customer_id INT NOT NULL,
     ward VARCHAR(50) NOT NULL,
     pickup_time DATETIME NOT NULL,
