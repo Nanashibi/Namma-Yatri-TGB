@@ -1,333 +1,291 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Container, Row, Col, Card, Form, Button, Alert, Table, Spinner } from 'react-bootstrap';
-import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Polyline } from '@react-google-maps/api';
+import React, { useState, useEffect } from 'react';
+import { Container, Row, Col, Card, Table, Alert, Spinner } from 'react-bootstrap';
 import Navbar from '../common/Navbar';
 import api from '../../utils/api';
-
-const mapContainerStyle = {
-  width: '100%',
-  height: '400px',
-};
 
 const DynamicRouting = () => {
   // State variables
   const [peakHours, setPeakHours] = useState([]);
   const [highDemandWards, setHighDemandWards] = useState([]);
-  const [lowDemandWards, setLowDemandWards] = useState([]);
   const [routes, setRoutes] = useState([]);
-  const [driverId, setDriverId] = useState('');
-  const [priceVote, setPriceVote] = useState('');
-  const [adjustmentFactor, setAdjustmentFactor] = useState(0);
-  const [alertMessage, setAlertMessage] = useState({ type: '', message: '' });
-  const [mapRoutes, setMapRoutes] = useState([]);
+  const [alertMessage, setAlertMessage] = useState([]);
+  const [wardLocations, setWardLocations] = useState([]);
   const [selectedMarker, setSelectedMarker] = useState(null);
-
-  // Google Maps API key from environment variables
-  const googleMapsApiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || '';
-
-  // Load Google Maps API with useJsApiLoader hook
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey,
-  });
-
-  const mockHighDemandWards = ['Koramangala', 'Indiranagar', 'Whitefield', 'Electronic City', 'HSR Layout'];
+  const [mapCenter, setMapCenter] = useState({ lat: 12.9716, lng: 77.5946 }); // Default to Bangalore center
+  const [isLoading, setIsLoading] = useState(true);
+  const [map, setMap] = useState(null);
   
-  // Mock ward locations for demonstration
-  const mockWardLocations = {
-    'Koramangala': { lat: 12.9352, lng: 77.6245 },
-    'Indiranagar': { lat: 12.9784, lng: 77.6408 },
-    'Whitefield': { lat: 12.9698, lng: 77.7500 },
-    'Electronic City': { lat: 12.8458, lng: 77.6612 },
-    'HSR Layout': { lat: 12.9116, lng: 77.6474 },
-    'JP Nagar': { lat: 12.9102, lng: 77.5922 },
-    'Marathahalli': { lat: 12.9591, lng: 77.6974 },
-    'Jayanagar': { lat: 12.9299, lng: 77.5848 },
-    'BTM Layout': { lat: 12.9166, lng: 77.6101 },
-    'Yelahanka': { lat: 13.1004, lng: 77.5963 }
+  // Google Maps configuration
+  const mapContainerStyle = {
+    width: '100%',
+    height: '400px',
   };
 
   useEffect(() => {
     const fetchDemandData = async () => {
       try {
+        setIsLoading(true);
         const peakHoursResponse = await api.get('dynamic-routing/peak_hours');
         setPeakHours(peakHoursResponse.data.peak_hours);
-
+        
         const highDemandWardsResponse = await api.get('dynamic-routing/high_demand_wards');
-        const routesResponse = await api.get('dynamic-routing/optimal_routes');
-
         setHighDemandWards(highDemandWardsResponse.data.high_demand_wards);
-        setLowDemandWards(['JP Nagar', 'Marathahalli', 'Jayanagar', 'BTM Layout', 'Yelahanka']); // Example low demand wards
-        setRoutes(Object.entries(routesResponse.data.routes).map(([from, path]) => ({
+        
+        const routesResponse = await api.get('dynamic-routing/optimal_routes');
+        const routeData = Object.entries(routesResponse.data.routes).map(([from, path]) => ({
           from,
           to: path[path.length - 1],
           path
-        })));
-
-        const routePaths = Object.entries(routesResponse.data.routes).map(([from, path]) => ({
-          from,
-          to: path[path.length - 1],
-          path: path.map(ward => mockWardLocations[ward])
         }));
-        setMapRoutes(routePaths);
+        setRoutes(routeData);
+        
+        // Extract all unique ward names from high demand and routes
+        const highDemandSet = new Set(highDemandWardsResponse.data.high_demand_wards);
+        const allWards = new Set();
+        
+        // Add high demand wards
+        highDemandWardsResponse.data.high_demand_wards.forEach(ward => allWards.add(ward));
+        
+        // Add all route origins (low demand)
+        routeData.forEach(route => {
+          if (!highDemandSet.has(route.from)) {
+            allWards.add(route.from);
+          }
+        });
+        
+        // Convert ward names to coordinates
+        await fetchWardCoordinates(Array.from(allWards), highDemandSet);
+        
       } catch (error) {
         console.error("Error fetching demand data:", error);
         setAlertMessage({
           type: 'danger',
           message: 'Failed to load demand forecasting data.'
         });
+      } finally {
+        setIsLoading(false);
       }
     };
-
+    
     fetchDemandData();
   }, []);
-
-  // Handle driver vote submission
-  const handleVoteSubmit = async (e) => {
-    e.preventDefault();
-    if (!driverId) {
-      setAlertMessage({ type: 'warning', message: 'Please enter your Driver ID' });
-      return;
-    }
-
+  
+  // Function to geocode ward names to coordinates using the existing Google API
+  const fetchWardCoordinates = async (wardNames, highDemandSet) => {
     try {
-      await api.post('dynamic-routing/vote', { driver_id: driverId, vote: priceVote });
-      setAlertMessage({
-        type: 'success',
-        message: 'Vote registered successfully!'
-      });
+      const wardLocationsData = [];
+      
+      // Add a city name to improve geocoding accuracy
+      const cityName = "Bangalore"; // Adjust for your city
+      
+      for (const ward of wardNames) {
+        try {
+          // Use existing Google API
+          const geocoder = new window.google.maps.Geocoder();
+          
+          // Geocode address
+          await new Promise((resolve, reject) => {
+            geocoder.geocode(
+              { address: `${ward} ward, ${cityName}` },
+              (results, status) => {
+                if (status === "OK" && results && results.length > 0) {
+                  const location = results[0].geometry.location;
+                  wardLocationsData.push({
+                    name: ward,
+                    location: { 
+                      lat: location.lat(), 
+                      lng: location.lng() 
+                    },
+                    isHighDemand: highDemandSet.has(ward)
+                  });
+                  
+                  // Set the first high demand ward as map center for better initial view
+                  if (highDemandSet.has(ward) && mapCenter.lat === 12.9716) {
+                    setMapCenter({ 
+                      lat: location.lat(), 
+                      lng: location.lng() 
+                    });
+                  }
+                  resolve();
+                } else {
+                  console.warn(`Could not geocode ward: ${ward}, status: ${status}`);
+                  resolve(); // Resolve anyway to continue with other wards
+                }
+              }
+            );
+          });
+        } catch (error) {
+          console.error(`Error geocoding ward ${ward}:`, error);
+        }
+      }
+      
+      setWardLocations(wardLocationsData);
+      
     } catch (error) {
+      console.error("Error in geocoding wards:", error);
       setAlertMessage({
-        type: 'danger',
-        message: 'Failed to submit vote. Please try again.'
+        type: 'warning',
+        message: 'Some ward locations could not be geocoded properly.'
       });
     }
   };
 
-  const handleGetAdjustment = async () => {
-    try {
-      const response = await api.get('dynamic-routing/price_adjustment');
-      setAdjustmentFactor(response.data.adjustment_factor);
-    } catch (error) {
-      console.error("Error fetching adjustment factor:", error);
-      setAlertMessage({
-        type: 'danger',
-        message: 'Failed to get adjustment factor. Please try again.'
-      });
-    }
+  // Function to initialize map
+  const onMapLoad = (mapInstance) => {
+    setMap(mapInstance);
   };
 
-  const onMarkerClick = useCallback((wardName) => {
-    setSelectedMarker(wardName);
-  }, []);
+  // Create markers when map and locations are available
+  useEffect(() => {
+    if (map && wardLocations.length > 0) {
+      // Clear existing markers if any
+      wardLocations.forEach(ward => {
+        const marker = new window.google.maps.Marker({
+          position: ward.location,
+          map: map,
+          title: ward.name,
+          icon: {
+            url: ward.isHighDemand
+              ? "https://maps.google.com/mapfiles/ms/icons/red-dot.png"
+              : "https://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+          }
+        });
 
-  const onInfoWindowClose = useCallback(() => {
-    setSelectedMarker(null);
-  }, []);
+        // Add click listener to show info window
+        marker.addListener("click", () => {
+          const infoWindow = new window.google.maps.InfoWindow({
+            content: `
+              <div>
+                <h5>${ward.name}</h5>
+                <p>${ward.isHighDemand ? "High Demand Ward" : "Low Demand Ward"}</p>
+              </div>
+            `
+          });
+          infoWindow.open(map, marker);
+        });
+      });
+    }
+  }, [map, wardLocations]);
 
   return (
     <>
-    <Navbar />
+      <Navbar />
       <Container className="mt-4">
         <h1>Demand Forecasting & Dynamic Driver Routing</h1>
-
         {alertMessage.message && (
-          <Alert variant={alertMessage.type} onClose={() => setAlertMessage({type: '', message: ''})} dismissible>
+          <Alert variant={alertMessage.type} onClose={() => setAlertMessage({ type: '', message: '' })} dismissible>
             {alertMessage.message}
           </Alert>
         )}
-
+        
         <Row className="mt-4">
           <Col md={6}>
             <Card className="mb-4">
               <Card.Header>Peak Hours & High-Demand Wards</Card.Header>
               <Card.Body>
                 <h5>Predicted Peak Hours:</h5>
-                <ul className="list-group mb-3">
-                  {peakHours.map((hour, idx) => (
-                    <li key={idx} className="list-group-item">
-                      {hour}
-                    </li>
-                  ))}
-                </ul>
-
+                {isLoading ? (
+                  <div className="text-center py-3">
+                    <Spinner animation="border" variant="primary" />
+                  </div>
+                ) : (
+                  <ul className="list-group mb-3">
+                    {peakHours.map((hour, idx) => (
+                      <li key={idx} className="list-group-item">
+                        {hour}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                
                 <h5>Predicted High-Demand Wards:</h5>
-                <ul className="list-group">
-                  {highDemandWards.map((ward, idx) => (
-                    <li key={idx} className="list-group-item">
-                      {ward}
-                    </li>
-                  ))}
-                </ul>
-              </Card.Body>
-            </Card>
-
-            <Card>
-              <Card.Header>Driver Price Adjustment Voting</Card.Header>
-              <Card.Body>
-                <Form onSubmit={handleVoteSubmit}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Driver ID</Form.Label>
-                    <Form.Control
-                      type="text"
-                      placeholder="Enter your Driver ID"
-                      value={driverId}
-                      onChange={(e) => setDriverId(e.target.value)}
-                    />
-                  </Form.Group>
-
-                  <Form.Group className="mb-3">
-                    <Form.Label>Vote for Price Adjustment</Form.Label>
-                    <div>
-                      <Form.Check
-                        inline
-                        type="radio"
-                        name="priceVote"
-                        id="increase"
-                        label="Increase (+1)"
-                        value="increase"
-                        checked={priceVote === 'increase'}
-                        onChange={(e) => setPriceVote(e.target.value)}
-                      />
-                      <Form.Check
-                        inline
-                        type="radio"
-                        name="priceVote"
-                        id="decrease"
-                        label="Decrease (-1)"
-                        value="decrease"
-                        checked={priceVote === 'decrease'}
-                        onChange={(e) => setPriceVote(e.target.value)}
-                      />
-                    </div>
-                  </Form.Group>
-
-                  <Button variant="primary" type="submit">
-                    Submit Vote
-                  </Button>
-                </Form>
-
-                <hr />
-
-                <div className="mt-3">
-                  <Button variant="secondary" onClick={handleGetAdjustment}>
-                    Get Price Adjustment
-                  </Button>
-                  {adjustmentFactor !== 0 && (
-                    <div className="mt-2">
-                      <strong>Adjustment Factor: </strong>
-                      <span className={adjustmentFactor > 0 ? 'text-success' : 'text-danger'}>
-                        {adjustmentFactor}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                {isLoading ? (
+                  <div className="text-center py-3">
+                    <Spinner animation="border" variant="primary" />
+                  </div>
+                ) : (
+                  <ul className="list-group">
+                    {highDemandWards.map((ward, idx) => (
+                      <li key={idx} className="list-group-item">
+                        {ward}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </Card.Body>
             </Card>
           </Col>
-
           <Col md={6}>
             <Card className="mb-4">
               <Card.Header>Optimal Driver Routing</Card.Header>
               <Card.Body>
-                <Table responsive striped bordered hover>
-                  <thead>
-                    <tr>
-                      <th>From (Low Demand)</th>
-                      <th>To (High Demand)</th>
-                      <th>Route</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {routes.map((route, idx) => (
-                      <tr key={idx}>
-                        <td>{route.from}</td>
-                        <td>{route.to}</td>
-                        <td>{route.path.join(' → ')}</td>
+                {isLoading ? (
+                  <div className="text-center py-3">
+                    <Spinner animation="border" variant="primary" />
+                  </div>
+                ) : (
+                  <Table responsive striped bordered hover>
+                    <thead>
+                      <tr>
+                        <th>From (Low Demand)</th>
+                        <th>To (High Demand)</th>
+                        <th>Route</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </Table>
+                    </thead>
+                    <tbody>
+                      {routes.map((route, idx) => (
+                        <tr key={idx}>
+                          <td>{route.from}</td>
+                          <td>{route.to}</td>
+                          <td>{route.path.join(' → ')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                )}
               </Card.Body>
             </Card>
-
+          </Col>
+        </Row>
+        
+        <Row className="mt-4 mb-5">
+          <Col md={12}>
             <Card>
-              <Card.Header>Route Visualization</Card.Header>
+              <Card.Header>Ward Demand Map</Card.Header>
               <Card.Body>
-                {/* Map visualization */}
-                <div style={{ height: '400px', width: '100%' }}>
-                  {loadError ? (
-                    <div className="d-flex flex-column align-items-center justify-content-center h-100">
-                      <p className="text-danger mb-3">Failed to load map: {loadError.message}</p>
-                      <Button variant="primary" onClick={() => window.location.reload()}>
-                        Reload Page
-                      </Button>
-                    </div>
-                  ) : !isLoaded ? (
-                    <div className="d-flex justify-content-center align-items-center h-100">
-                      <Spinner animation="border" />
-                    </div>
-                  ) : (
-                    <GoogleMap
-                      mapContainerStyle={mapContainerStyle}
-                      center={{
-                        lat: 12.9716,
-                        lng: 77.5946 // Bengaluru center
+                {isLoading ? (
+                  <div className="text-center py-5">
+                    <Spinner animation="border" variant="primary" />
+                    <p className="mt-2">Loading map and geocoding ward locations...</p>
+                  </div>
+                ) : (
+                  <>
+                    <div 
+                      id="google-map" 
+                      style={mapContainerStyle}
+                      ref={(mapDiv) => {
+                        if (mapDiv && !map) {
+                          // Initialize map only once
+                          const mapInstance = new window.google.maps.Map(mapDiv, {
+                            center: mapCenter,
+                            zoom: 12,
+                          });
+                          onMapLoad(mapInstance);
+                        }
                       }}
-                      zoom={12}
-                      options={{
-                        streetViewControl: false,
-                        mapTypeControl: false
-                      }}
-                    >
-                      {/* Render wards as markers */}
-                      {Object.entries(mockWardLocations).map(([ward, position]) => (
-                        <Marker
-                          key={ward}
-                          position={position}
-                          onClick={() => onMarkerClick(ward)}
-                          icon={{
-                            url: highDemandWards.includes(ward)
-                              ? "https://maps.google.com/mapfiles/ms/icons/red-dot.png"
-                              : lowDemandWards.includes(ward)
-                                ? "https://maps.google.com/mapfiles/ms/icons/blue-dot.png"
-                                : "https://maps.google.com/mapfiles/ms/icons/yellow-dot.png"
-                          }}
-                        >
-                          {selectedMarker === ward && (
-                            <InfoWindow
-                              position={position}
-                              onCloseClick={onInfoWindowClose}
-                            >
-                              <div>
-                                <h6>{ward}</h6>
-                                <p>{highDemandWards.includes(ward) 
-                                  ? 'High Demand Area' 
-                                  : lowDemandWards.includes(ward) 
-                                    ? 'Low Demand Area' 
-                                    : 'Medium Demand Area'}
-                                </p>
-                              </div>
-                            </InfoWindow>
-                          )}
-                        </Marker>
-                      ))}
-                      
-                      {/* Render routes as polylines */}
-                      {mapRoutes.map((route, idx) => (
-                        <Polyline
-                          key={idx}
-                          path={route.path}
-                          options={{
-                            strokeColor: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
-                            strokeOpacity: 0.8,
-                            strokeWeight: 3
-                          }}
-                        />
-                      ))}
-                    </GoogleMap>
-                  )}
-                </div>
+                    ></div>
+                    <div className="mt-3">
+                      <div className="d-flex align-items-center mb-2">
+                        <div style={{ width: 20, height: 20, backgroundColor: "red", borderRadius: "50%", marginRight: 10 }}></div>
+                        <span>High Demand Wards</span>
+                      </div>
+                      <div className="d-flex align-items-center">
+                        <div style={{ width: 20, height: 20, backgroundColor: "blue", borderRadius: "50%", marginRight: 10 }}></div>
+                        <span>Low Demand Wards</span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </Card.Body>
             </Card>
           </Col>
