@@ -222,6 +222,26 @@ def update_driver_location(driver_id, location_name, latitude, longitude):
         cursor.close()
         conn.close()
 
+def update_driver_availability(driver_id, is_available):
+    """Update a driver's availability status"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute(
+            "UPDATE driver SET is_available = %s WHERE driver_id = %s",
+            (is_available, driver_id)
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error updating driver availability: {e}")
+        conn.rollback()
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
 def get_nearest_driver(customer_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)

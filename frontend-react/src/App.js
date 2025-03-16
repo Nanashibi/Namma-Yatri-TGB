@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, AuthContext } from './contexts/AuthContext';
 import Login from './components/auth/Login';
@@ -16,14 +16,39 @@ import './App.css';
 // Create a component for the routes to access AuthContext
 function AppRoutes() {
   const { authChecked, loading } = useContext(AuthContext);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  
+  // Add an effect to mark initial load as complete
+  useEffect(() => {
+    if (authChecked) {
+      // Set a small timeout to ensure rendering is complete
+      const timer = setTimeout(() => {
+        setInitialLoadComplete(true);
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [authChecked]);
 
   // Show loading spinner until authentication check is complete
-  if (!authChecked && loading) {
+  if (!authChecked) {
     return (
       <Container className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
         <div className="text-center">
           <Spinner animation="border" role="status" />
           <p className="mt-2">Loading application...</p>
+        </div>
+      </Container>
+    );
+  }
+
+  // Use a persistent state flag to ensure we don't show loading spinner on subsequent renders
+  if (!initialLoadComplete && loading) {
+    return (
+      <Container className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
+        <div className="text-center">
+          <Spinner animation="border" role="status" />
+          <p className="mt-2">Preparing dashboard...</p>
         </div>
       </Container>
     );

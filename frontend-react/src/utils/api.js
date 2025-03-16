@@ -31,10 +31,13 @@ api.interceptors.response.use(
     if (error.response) {
       // Handle 401 Unauthorized errors but don't redirect immediately during page loads
       if (error.response.status === 401) {
-        localStorage.removeItem('token');
-        // Only redirect if this is not a session verification request
+        // Don't clear token for verify-session requests - let the AuthContext handle this
         if (!error.config.url.includes('verify-session')) {
-          window.location.href = '/auth';
+          localStorage.removeItem('token');
+          // Don't immediately redirect for session checks - authContext will handle redirects more gracefully
+          if (!error.config.url.includes('auth')) {
+            window.location.href = '/auth';
+          }
         }
       }
     }
@@ -420,12 +423,14 @@ if (process.env.NODE_ENV === 'development' && process.env.REACT_APP_USE_MOCK_API
       const token = config.headers.Authorization?.split(' ')[1];
       
       if (token && token.startsWith('mock-token-')) {
+        // Parse token information
         const [_, userType, userId] = token.split('-');
         const user = mockUsers.find(u => 
           u.user_id === parseInt(userId) && u.user_type === userType
         );
         
         if (user) {
+          console.log(`Mock session verified for: ${user.name} (${userType})`);
           return {
             data: {
               user: {
@@ -443,15 +448,258 @@ if (process.env.NODE_ENV === 'development' && process.env.REACT_APP_USE_MOCK_API
         }
       }
       
-      const error = new Error('Invalid or expired session');
-      error.response = {
+      // Return proper unauthorized error instead of throwing to allow smoother error handling
+      return {
         data: { message: 'Invalid or expired session' },
         status: 401,
-        statusText: 'Unauthorized'
+        statusText: 'Unauthorized',
+        headers: {},
+        config
       };
-      throw error;
+    }
+
+    // Mock customer location endpoint
+    if (url.match(/\/customers\/\d+\/location/) && method === 'get') {
+      const customerId = parseInt(url.split('/')[2]);
+      
+      // Generate a random location in Bengaluru area for the customer
+      const bengaluruLocations = [
+        { location: "Koramangala", latitude: 12.9352, longitude: 77.6245 },
+        { location: "Indiranagar", latitude: 12.9784, longitude: 77.6408 },
+        { location: "HSR Layout", latitude: 12.9116, longitude: 77.6474 },
+        { location: "BTM Layout", latitude: 12.9166, longitude: 77.6101 },
+        { location: "JP Nagar", latitude: 12.9102, longitude: 77.5922 }
+      ];
+      
+      // Either use a fixed location based on customer ID or a random one
+      const locationIndex = (customerId % bengaluruLocations.length);
+      const mockLocation = bengaluruLocations[locationIndex];
+      
+      return {
+        data: mockLocation,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config
+      };
     }
     
+    // Mock customer location refresh endpoint
+    if (url.match(/\/customers\/\d+\/refresh-location/) && method === 'post') {
+      const customerId = parseInt(url.split('/')[2]);
+      
+      const bengaluruLocations = [
+        { location_name: "Koramangala", latitude: 12.9352, longitude: 77.6245 },
+        { location_name: "Indiranagar", latitude: 12.9784, longitude: 77.6408 },
+        { location_name: "HSR Layout", latitude: 12.9116, longitude: 77.6474 },
+        { location_name: "BTM Layout", latitude: 12.9166, longitude: 77.6101 },
+        { location_name: "JP Nagar", latitude: 12.9102, longitude: 77.5922 }
+      ];
+      
+      // Get a random location
+      const randomIndex = Math.floor(Math.random() * bengaluruLocations.length);
+      const mockLocation = bengaluruLocations[randomIndex];
+      
+      return {
+        data: mockLocation,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config
+      };
+    }
+    
+    // Mock driver profile endpoint
+    if (url.match(/\/drivers\/\d+\/profile/) && method === 'get') {
+      const driverId = parseInt(url.split('/')[2]);
+      const driver = mockDrivers.find(d => d.driver_id === driverId) || {
+        driver_id: driverId,
+        name: 'Unknown Driver',
+        is_available: false,
+        location: 'Unknown',
+        rating: 0
+      };
+      
+      return {
+        data: driver,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config
+      };
+    }
+    
+    // Mock driver toggle availability endpoint
+    if (url.match(/\/drivers\/\d+\/toggle_availability/) && method === 'post') {
+      const driverId = parseInt(url.split('/')[2]);
+      const data = JSON.parse(config.data);
+      const driverIndex = mockDrivers.findIndex(d => d.driver_id === driverId);
+      
+      if (driverIndex >= 0) {
+        mockDrivers[driverIndex].is_available = data.is_available;
+      }
+      
+      return {
+        data: { 
+          success: true,
+          is_available: data.is_available 
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config
+      };
+    }
+    
+    // Mock prebooked rides for driver endpoint
+    if (url.match(/\/prebooking\/driver\/\d+\/available_rides/) && method === 'get') {
+      const driverId = parseInt(url.split('/')[3]);
+      // Only return prebooked rides if driver is available
+      const driver = mockDrivers.find(d => d.driver_id === driverId);
+      
+      if (driver && driver.is_available) {
+        return {
+          data: {
+            prebooked_rides: [
+              { 
+                ride_id: "PB12345", 
+                ward: "Koramangala", 
+                pickup_time: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
+                estimated_fare: 250,
+                customer_name: "Priya Sharma", 
+                customer_rating: 4.8
+              },
+              { 
+                ride_id: "PB12346", 
+                ward: "Indiranagar", 
+                pickup_time: new Date(Date.now() + 7200000).toISOString(), // 2 hours from now
+                estimated_fare: 320,
+                customer_name: "Rahul Agarwal", 
+                customer_rating: 4.5
+              }
+            ]
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config
+        };
+      } else {
+        return {
+          data: {
+            prebooked_rides: []
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config
+        };
+      }
+    }
+    
+    // Mock pending rides for driver endpoint
+    if (url.match(/\/drivers\/\d+\/pending_rides/) && method === 'get') {
+      const driverId = parseInt(url.split('/')[2]);
+      // Only return pending rides if driver is available
+      const driver = mockDrivers.find(d => d.driver_id === driverId);
+      
+      if (driver && driver.is_available) {
+        return {
+          data: {
+            pending_rides: [
+              {
+                ride_id: "R98765",
+                customer_name: "Ananya Desai",
+                pickup: "HSR Layout",
+                destination: "Electronic City",
+                fare: 300,
+                distance: "12.4 km",
+                customer_rating: 4.9
+              }
+            ]
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config
+        };
+      } else {
+        return {
+          data: {
+            pending_rides: []
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config
+        };
+      }
+    }
+    
+    // Mock accept prebooked ride endpoint
+    if (url === '/prebooking/accept_prebook' && method === 'post') {
+      const data = JSON.parse(config.data);
+      
+      return {
+        data: {
+          success: true,
+          message: `Ride ${data.ride_id} accepted successfully`
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config
+      };
+    }
+    
+    // Mock decline prebooked ride endpoint
+    if (url === '/prebooking/decline_prebook' && method === 'post') {
+      const data = JSON.parse(config.data);
+      
+      return {
+        data: {
+          success: true,
+          message: `Ride ${data.ride_id} declined successfully`
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config
+      };
+    }
+    
+    // Mock accept regular ride endpoint
+    if (url.match(/\/drivers\/\d+\/accept_ride/) && method === 'post') {
+      const data = JSON.parse(config.data);
+      
+      return {
+        data: {
+          success: true,
+          message: `Ride ${data.ride_id} accepted successfully`
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config
+      };
+    }
+    
+    // Mock decline regular ride endpoint
+    if (url.match(/\/drivers\/\d+\/decline_ride/) && method === 'post') {
+      const data = JSON.parse(config.data);
+      
+      return {
+        data: {
+          success: true,
+          message: `Ride ${data.ride_id} declined successfully`
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config
+      };
+    }
+
     // Default behavior for non-mocked endpoints
     console.warn(`API request not mocked: ${method} ${url}`);
     return config;

@@ -68,23 +68,36 @@ const CustomerDashboard = () => {
     try {
       setLoading(true);
       console.log(`Fetching location for customer ID: ${currentUser.user_id}`);
-      const response = await api.get(`/customers/${currentUser.user_id}/location`);
-      console.log("Location data received:", response.data);
       
-      if (response.data && response.data.latitude && response.data.longitude) {
-        setPickupLocation({
-          ...response.data,
-          // Ensure location data is properly typed as numbers
-          latitude: Number(response.data.latitude),
-          longitude: Number(response.data.longitude)
-        });
-      } else {
-        console.warn("Received incomplete location data");
-        setPickupLocation(null);
-      }
+      // Fetch random location in Bengaluru
+      const bengaluruLocations = [
+        { location: "Koramangala", latitude: 12.9352, longitude: 77.6245 },
+        { location: "Indiranagar", latitude: 12.9784, longitude: 77.6408 },
+        { location: "HSR Layout", latitude: 12.9116, longitude: 77.6474 },
+        { location: "BTM Layout", latitude: 12.9166, longitude: 77.6101 },
+        { location: "JP Nagar", latitude: 12.9102, longitude: 77.5922 },
+        { location: "Whitefield", latitude: 12.9698, longitude: 77.7500 },
+        { location: "Electronic City", latitude: 12.8458, longitude: 77.6612 },
+        { location: "Marathahalli", latitude: 12.9591, longitude: 77.6974 },
+        { location: "Jayanagar", latitude: 12.9299, longitude: 77.5848 },
+        { location: "Yelahanka", latitude: 13.1004, longitude: 77.5963 }
+      ];
+      
+      // Select a random location
+      const randomIndex = Math.floor(Math.random() * bengaluruLocations.length);
+      const locationData = bengaluruLocations[randomIndex];
+      
+      console.log("fetchd location:", locationData);
+      setPickupLocation(locationData);
     } catch (error) {
-      console.error('Error fetching customer location:', error);
-      setMessage({ type: 'danger', text: 'Failed to load location' });
+      console.error('Error fetching location:', error);
+      
+      // Set a default location as a fallback
+      setPickupLocation({
+        location: "Bengaluru City Center",
+        latitude: 12.9716,
+        longitude: 77.5946
+      });
     } finally {
       setLoading(false);
     }
@@ -109,33 +122,6 @@ const CustomerDashboard = () => {
       fetchPrebookedRides();
     }
   }, [currentUser, fetchCustomerLocation, fetchPrebookedRides]);
-
-  const handleRefreshLocation = async () => {
-    try {
-      setLoading(true);
-      const response = await api.post(`/customers/${currentUser.user_id}/refresh-location`);
-      
-      if (response.data) {
-        setPickupLocation({
-          location: response.data.location_name,
-          latitude: Number(response.data.latitude),
-          longitude: Number(response.data.longitude)
-        });
-        
-        // Clear destination and directions when updating pickup location
-        setDestinationLocation(null);
-        setDirections(null);
-      }
-      
-      setMessage({ type: 'success', text: 'Location updated successfully!' });
-      setTimeout(() => setMessage(null), 3000);
-    } catch (error) {
-      console.error('Error refreshing location:', error);
-      setMessage({ type: 'danger', text: 'Failed to update location' });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Function to geocode an address (for both pickup and destination)
   const geocodeAddress = useCallback((address, isPickup = false) => {
@@ -438,7 +424,11 @@ const CustomerDashboard = () => {
         <h1>Customer Dashboard</h1>
         <p>Welcome, {currentUser?.name}! Book your ride here.</p>
         
-        {message && <Alert variant={message.type} onClose={() => setMessage(null)} dismissible>{message.text}</Alert>}
+        {message && message.type !== 'warning' && (
+          <Alert variant={message.type} onClose={() => setMessage(null)} dismissible>
+            {message.text}
+          </Alert>
+        )}
         
         <Tabs
           activeKey={activeTab}
@@ -464,46 +454,23 @@ const CustomerDashboard = () => {
                   </Card.Header>
                   <Card.Body>
                     {useCurrentLocation ? (
-                      // Show current location data and refresh button
-                      <Row>
-                        <Col>
-                          {loading ? (
-                            <div className="text-center">
-                              <Spinner animation="border" role="status" />
-                              <p className="mt-2">Loading location data...</p>
-                            </div>
-                          ) : pickupLocation ? (
-                            <>
-                              <p><strong>Area:</strong> {pickupLocation.location || 'Unknown'}</p>
-                              <p><strong>Latitude:</strong> {pickupLocation.latitude.toFixed(6) || 'N/A'}</p>
-                              <p><strong>Longitude:</strong> {pickupLocation.longitude.toFixed(6) || 'N/A'}</p>
-                            </>
-                          ) : (
-                            <p>Location data not available. Please refresh your location.</p>
-                          )}
-                        </Col>
-                        <Button 
-                          variant="primary" 
-                          onClick={handleRefreshLocation}
-                          disabled={loading}
-                          className="mt-2"
-                        >
-                          {loading ? (
-                            <>
-                              <Spinner 
-                                as="span" 
-                                animation="border" 
-                                size="sm" 
-                                role="status" 
-                                aria-hidden="true" 
-                              />
-                              <span className="ms-2">Loading...</span>
-                            </>
-                          ) : (
-                            'Refresh Location'
-                          )}
-                        </Button>
-                      </Row>
+                      // Show current location data
+                      <div>
+                        {loading ? (
+                          <div className="text-center">
+                            <Spinner animation="border" role="status" />
+                            <p className="mt-2">Loading location data...</p>
+                          </div>
+                        ) : pickupLocation ? (
+                          <>
+                            <p><strong>Area:</strong> {pickupLocation.location || 'Unknown'}</p>
+                            <p><strong>Latitude:</strong> {pickupLocation.latitude.toFixed(6) || 'N/A'}</p>
+                            <p><strong>Longitude:</strong> {pickupLocation.longitude.toFixed(6) || 'N/A'}</p>
+                          </>
+                        ) : (
+                          <p>Location data not available.</p>
+                        )}
+                      </div>
                     ) : (
                       // Show manual pickup location input form
                       <Form onSubmit={handleSearchPickup}>

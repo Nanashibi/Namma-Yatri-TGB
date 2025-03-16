@@ -25,14 +25,16 @@ export const AuthProvider = ({ children }) => {
               const userId = tokenParts[2];
               
               // Set mock user based on token
-              setCurrentUser({
+              const mockUser = {
                 user_id: parseInt(userId),
                 name: userType === 'customer' ? 'Test Customer' : 
                       userType === 'driver' ? 'Test Driver' : 'Admin User',
                 user_type: userType,
                 email: `${userType}@example.com`
-              });
-              console.log('Mock user session restored from token');
+              };
+              
+              setCurrentUser(mockUser);
+              console.log('Mock user session restored:', mockUser);
               setLoading(false);
               setAuthChecked(true);
               return;
@@ -42,11 +44,21 @@ export const AuthProvider = ({ children }) => {
           // Real API call for non-mock environment
           const response = await api.get('/auth/verify-session');
           console.log('Session verification response:', response.data);
-          setCurrentUser(response.data.user);
+          
+          if (response && response.data && response.data.user) {
+            setCurrentUser(response.data.user);
+          } else {
+            // If response exists but no user data, clear token
+            console.warn('Valid response but no user data');
+            localStorage.removeItem('token');
+            setCurrentUser(null);
+          }
         } catch (error) {
           console.error('Session validation failed:', error);
-          // Clear any invalid tokens
-          localStorage.removeItem('token');
+          // Only clear token if it's an auth error, not a network error
+          if (error.response && error.response.status === 401) {
+            localStorage.removeItem('token');
+          }
           setCurrentUser(null);
         }
       } else {
