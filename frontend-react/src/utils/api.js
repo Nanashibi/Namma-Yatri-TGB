@@ -700,6 +700,28 @@ if (process.env.NODE_ENV === 'development' && process.env.REACT_APP_USE_MOCK_API
       };
     }
 
+    // Mock recommender endpoint
+    if (url === '/recommender/recommend' && method === 'post') {
+      const data = JSON.parse(config.data);
+      const ride = data.ride;
+      const nearby_drivers = data.nearby_drivers || [];
+      
+      // Return the exact response format as specified
+      return {
+        data: {
+          ranked_drivers: [
+            {"driver_id": "DRV0002", "probability": 0.33847263},
+            {"driver_id": "DRV0001", "probability": 0.33712345},
+            {"driver_id": "DRV0003", "probability": 0.32440394}
+          ]
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config
+      };
+    }
+
     // Default behavior for non-mocked endpoints
     console.warn(`API request not mocked: ${method} ${url}`);
     return config;

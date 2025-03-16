@@ -4,7 +4,7 @@ echo Starting Namma Yatri Application
 start cmd /k pip install -r requirements.txt
 
 echo Setting up database...
-python setup_database.py
+python database/setup_database.py
 
 echo Starting FastAPI server...
 start cmd /k uvicorn api_server:app --host 0.0.0.0 --port 5000 --reload

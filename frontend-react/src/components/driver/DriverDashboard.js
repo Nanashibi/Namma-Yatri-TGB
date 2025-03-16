@@ -19,6 +19,59 @@ const DriverDashboard = () => {
     const [alertMessage, setAlertMessage] = useState(null);
     const [rideType, setRideType] = useState("");
 
+    // Function to load available rides when driver is online
+    const loadAvailableRides = () => {
+        // Set mock prebooked rides
+        setPrebookedRides([
+            { 
+                ride_id: "PB12345", 
+                ward: "Koramangala", 
+                pickup_time: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
+                estimated_fare: 250,
+                customer_name: "Priya Sharma", 
+                customer_rating: 4.8
+            },
+            { 
+                ride_id: "PB12346", 
+                ward: "Indiranagar", 
+                pickup_time: new Date(Date.now() + 7200000).toISOString(), // 2 hours from now
+                estimated_fare: 320,
+                customer_name: "Rahul Agarwal", 
+                customer_rating: 4.5
+            },
+            { 
+                ride_id: "PB12347", 
+                ward: "HSR Layout", 
+                pickup_time: new Date(Date.now() + 10800000).toISOString(), // 3 hours from now
+                estimated_fare: 180,
+                customer_name: "Vikram Iyer", 
+                customer_rating: 4.7
+            }
+        ]);
+        
+        // Set mock pending rides
+        setPendingRides([
+            {
+                ride_id: "R98765",
+                customer_name: "Ananya Desai",
+                pickup: "HSR Layout",
+                destination: "Electronic City",
+                fare: 300,
+                distance: "12.4 km",
+                customer_rating: 4.9
+            },
+            {
+                ride_id: "R98766",
+                customer_name: "Neha Reddy",
+                pickup: "Indiranagar",
+                destination: "MG Road",
+                fare: 180,
+                distance: "5.8 km",
+                customer_rating: 4.6
+            }
+        ]);
+    };
+
     useEffect(() => {
         if (!currentUser) {
             setDriverData({ driver_id: "N/A", coins: 0, tier: "Bronze", rank: "N/A" });
@@ -35,6 +88,11 @@ const DriverDashboard = () => {
                     const driverResponse = await api.get(`/drivers/${currentUser.user_id}/profile`);
                     const driverProfile = driverResponse.data;
                     setIsOnline(driverProfile.is_available);
+                    
+                    // If driver is online, load available rides
+                    if (driverProfile.is_available) {
+                        loadAvailableRides();
+                    }
                 } catch (error) {
                     console.error("Error fetching driver profile:", error);
                     setIsOnline(false);
@@ -65,63 +123,6 @@ const DriverDashboard = () => {
                 
                 await fetchLeaderboard();
                 
-                // Use mock data for prebooked and pending rides
-                if (isOnline) {
-                    // Set mock prebooked rides
-                    setPrebookedRides([
-                        { 
-                            ride_id: "PB12345", 
-                            ward: "Koramangala", 
-                            pickup_time: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
-                            estimated_fare: 250,
-                            customer_name: "Priya Sharma", 
-                            customer_rating: 4.8
-                        },
-                        { 
-                            ride_id: "PB12346", 
-                            ward: "Indiranagar", 
-                            pickup_time: new Date(Date.now() + 7200000).toISOString(), // 2 hours from now
-                            estimated_fare: 320,
-                            customer_name: "Rahul Agarwal", 
-                            customer_rating: 4.5
-                        },
-                        { 
-                            ride_id: "PB12347", 
-                            ward: "HSR Layout", 
-                            pickup_time: new Date(Date.now() + 10800000).toISOString(), // 3 hours from now
-                            estimated_fare: 180,
-                            customer_name: "Vikram Iyer", 
-                            customer_rating: 4.7
-                        }
-                    ]);
-                    
-                    // Set mock pending rides
-                    setPendingRides([
-                        {
-                            ride_id: "R98765",
-                            customer_name: "Ananya Desai",
-                            pickup: "HSR Layout",
-                            destination: "Electronic City",
-                            fare: 300,
-                            distance: "12.4 km",
-                            customer_rating: 4.9
-                        },
-                        {
-                            ride_id: "R98766",
-                            customer_name: "Neha Reddy",
-                            pickup: "Indiranagar",
-                            destination: "MG Road",
-                            fare: 180,
-                            distance: "5.8 km",
-                            customer_rating: 4.6
-                        }
-                    ]);
-                } else {
-                    // Clear rides when offline
-                    setPrebookedRides([]);
-                    setPendingRides([]);
-                }
-                
             } catch (error) {
                 console.error("Error fetching driver data:", error);
                 setDriverData({ driver_id: currentUser.user_id, coins: 0, tier: "Bronze", rank: "N/A" });
@@ -131,59 +132,42 @@ const DriverDashboard = () => {
         };
 
         fetchData();
-    }, [currentUser, isOnline]);
+    }, [currentUser]);
 
     const handleToggleOnline = async () => {
         try {
             setUpdatingStatus(true);
             const newStatus = !isOnline;
             
-            // Always use mock data in development mode - don't try to make real API calls
-            // This prevents the "Failed to update" error
+            // Update the state immediately for better UI responsiveness
             setIsOnline(newStatus);
+            
+            // Show success message
             setAlertMessage({
                 type: "success",
                 text: `You are now ${newStatus ? "online" : "offline"}.`
             });
             
             // Update rides based on new status
-            if (!newStatus) {
+            if (newStatus) {
+                // Load available rides when going online
+                loadAvailableRides();
+            } else {
+                // Clear rides when going offline
                 setPrebookedRides([]);
                 setPendingRides([]);
-            } else {
-                setPrebookedRides([
-                    { 
-                        ride_id: "PB12345", 
-                        ward: "Koramangala", 
-                        pickup_time: new Date(Date.now() + 3600000).toISOString(),
-                        estimated_fare: 250,
-                        customer_name: "Priya Sharma", 
-                        customer_rating: 4.8
-                    },
-                    { 
-                        ride_id: "PB12346", 
-                        ward: "Indiranagar", 
-                        pickup_time: new Date(Date.now() + 7200000).toISOString(),
-                        estimated_fare: 320,
-                        customer_name: "Rahul Agarwal", 
-                        customer_rating: 4.5
-                    }
-                ]);
-                
-                setPendingRides([
-                    {
-                        ride_id: "R98765",
-                        customer_name: "Ananya Desai",
-                        pickup: "HSR Layout",
-                        destination: "Electronic City",
-                        fare: 300,
-                        distance: "12.4 km",
-                        customer_rating: 4.9
-                    }
-                ]);
             }
+            
+            // In a real application, we would make an API call here
+            // For mock implementation, we've already updated the UI state
+            
         } catch (error) {
             console.error("Error toggling availability:", error);
+
+            const newStatus = !isOnline;            
+            // Revert the state change if there was an error
+            setIsOnline(!newStatus);
+            
             setAlertMessage({
                 type: "danger",
                 text: "Failed to update your availability. Please try again."

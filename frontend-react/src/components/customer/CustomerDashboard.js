@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect, useCallback, useMemo } from 'react';
-import { Container, Row, Col, Card, Form, Button, Alert, Spinner, Tabs, Tab, Modal, ListGroup, Badge } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, Button, Alert, Spinner, Tabs, Tab, Modal, ListGroup, Badge, ProgressBar, Image } from 'react-bootstrap';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, DirectionsRenderer } from '@react-google-maps/api';
 import { AuthContext } from '../../contexts/AuthContext';
 import Navbar from '../common/Navbar';
@@ -24,6 +24,16 @@ const CustomerDashboard = () => {
   const [directions, setDirections] = useState(null);
   const [geocoding, setGeocoding] = useState(false);
   const [useCurrentLocation, setUseCurrentLocation] = useState(true); // To toggle between current and manual location
+  
+  // New states for ride details
+  const [rideDistance, setRideDistance] = useState(0);
+  const [rideDuration, setRideDuration] = useState(0);
+  const [rideFare, setRideFare] = useState(0);
+  
+  // New states for driver selection
+  const [availableDrivers, setAvailableDrivers] = useState([]);
+  const [showDriverModal, setShowDriverModal] = useState(false);
+  const [selectedDriver, setSelectedDriver] = useState(null);
   
   // Prebooking states
   const [activeTab, setActiveTab] = useState('book-now');
@@ -165,7 +175,7 @@ const CustomerDashboard = () => {
     });
   }, [isLoaded, pickupLocation, destinationLocation]);
 
-  // Calculate directions between two points
+  // Calculate directions between two points - UPDATED to store distance and duration
   const calculateDirections = useCallback((origin, destination) => {
     if (!isLoaded || !window.google) return;
     
@@ -180,6 +190,23 @@ const CustomerDashboard = () => {
       (result, status) => {
         if (status === window.google.maps.DirectionsStatus.OK) {
           setDirections(result);
+          
+          // Extract and store distance and duration
+          const route = result.routes[0];
+          if (route && route.legs && route.legs[0]) {
+            const distanceInMeters = route.legs[0].distance.value;
+            const durationInSeconds = route.legs[0].duration.value;
+            
+            // Convert to km and minutes
+            setRideDistance(Math.round(distanceInMeters / 100) / 10); // Distance in km
+            setRideDuration(Math.round(durationInSeconds / 60)); // Duration in minutes
+            
+            // Estimate fare based on distance
+            const baseFare = 50;
+            const perKmRate = 15;
+            const estimatedFare = baseFare + (distanceInMeters / 1000) * perKmRate;
+            setRideFare(Math.round(estimatedFare));
+          }
         } else {
           console.error('Directions request failed:', status);
           setMessage({ type: 'warning', text: 'Could not calculate route' });
@@ -212,6 +239,31 @@ const CustomerDashboard = () => {
     geocodeAddress(destinationInput, false);
   };
 
+  // Function to get the current hour (0-23)
+  const getCurrentHour = () => {
+    return new Date().getHours();
+  };
+
+  // Function to check if current time is peak hour (simplified)
+  const isPeakHour = () => {
+    const hour = getCurrentHour();
+    // Consider 8-10 AM and 5-8 PM as peak hours
+    return (hour >= 8 && hour <= 10) || (hour >= 17 && hour <= 20);
+  };
+
+  // Function to check if it's a weekend
+  const isWeekend = () => {
+    const day = new Date().getDay();
+    return day === 0 || day === 6; // 0 is Sunday, 6 is Saturday
+  };
+
+  // Function to get current day of the week
+  const getDayOfWeek = () => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return days[new Date().getDay()];
+  };
+
+  // Modified handleBookRide to always show the same driver data
   const handleBookRide = async (e) => {
     e.preventDefault();
     
@@ -227,40 +279,160 @@ const CustomerDashboard = () => {
     
     setSearchingDrivers(true);
     try {
-      console.log("Booking ride with data:", {
-        destination: destinationLocation.location,
-        pickup: pickupLocation.location,
-        pickup_lat: pickupLocation.latitude,
-        pickup_lng: pickupLocation.longitude,
-        destination_lat: destinationLocation.latitude,
-        destination_lng: destinationLocation.longitude
-      });
+      // Hard-coded drivers with predetermined probabilities
+      const fixedDrivers = [
+        {
+          "driver_id": "DRV0002",
+          "probability": 0.33847263,
+          "experience_months": 24,
+          "base_acceptance_rate": 0.80,
+          "peak_acceptance_rate": 0.70,
+          "avg_daily_hours": 9,
+          "primary_ward": "Indiranagar",
+          "rating": 4.7,
+          "distance": 1.8,
+          "eta": 6,
+          "vehicle_type": "Auto",
+          "photo_url": "https://randomuser.me/api/portraits/men/2.jpg"
+        },
+        {
+          "driver_id": "DRV0001",
+          "probability": 0.33712345,
+          "experience_months": 36,
+          "base_acceptance_rate": 0.75,
+          "peak_acceptance_rate": 0.65,
+          "avg_daily_hours": 8,
+          "primary_ward": "Hennur",
+          "rating": 4.8,
+          "distance": 1.2,
+          "eta": 4,
+          "vehicle_type": "Auto",
+          "photo_url": "https://randomuser.me/api/portraits/men/1.jpg"
+        },
+        {
+          "driver_id": "DRV0003",
+          "probability": 0.32440394,
+          "experience_months": 48,
+          "base_acceptance_rate": 0.85,
+          "peak_acceptance_rate": 0.75,
+          "avg_daily_hours": 10,
+          "primary_ward": "Hennur",
+          "rating": 4.9,
+          "distance": 0.9,
+          "eta": 3,
+          "vehicle_type": "Auto",
+          "photo_url": "https://randomuser.me/api/portraits/men/3.jpg"
+        }
+      ];
       
-      const response = await api.post(`/customers/${currentUser.user_id}/request-ride`, { 
-        destination: destinationLocation.location,
-        pickup: pickupLocation.location,
-        // Include coordinates in the request
-        pickup_lat: pickupLocation.latitude,
-        pickup_lng: pickupLocation.longitude,
-        destination_lat: destinationLocation.latitude,
-        destination_lng: destinationLocation.longitude
-      });
+      // Simulate network delay for a more realistic experience
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      console.log("Ride booking response:", response.data);
+      // Always set the same drivers regardless of API response
+      setAvailableDrivers(fixedDrivers);
+      setShowDriverModal(true);
       
-      setMessage({ 
-        type: 'success', 
-        text: `Ride booked successfully! A driver is on their way. Ride ID: ${response.data.ride_id}`
-      });
     } catch (error) {
-      console.error("Error booking ride:", error);
+      console.error("Error getting recommended drivers:", error);
       setMessage({ 
         type: 'danger', 
-        text: error.response?.data?.detail || 'Failed to request a ride. Please try again.' 
+        text: error.response?.data?.detail || 'Failed to find available drivers. Please try again.' 
       });
     } finally {
       setSearchingDrivers(false);
     }
+  };
+
+  // Handle selecting a driver
+  const handleDriverSelect = (driver) => {
+    setSelectedDriver(driver);
+  };
+  
+  // Handle booking with selected driver
+  const handleConfirmRide = async () => {
+    if (!selectedDriver) {
+      setMessage({ type: 'warning', text: 'Please select a driver first' });
+      return;
+    }
+    
+    try {
+      // Here you would normally call an API to confirm the ride
+      // For now, just show a success message
+      setShowDriverModal(false);
+      
+      setMessage({ 
+        type: 'success',
+        text: `Ride booked successfully with driver ${selectedDriver.driver_id}! They will arrive in ${selectedDriver.eta} minutes.` 
+      });
+      
+      setSelectedDriver(null);
+    } catch (error) {
+      console.error("Error confirming ride:", error);
+      setMessage({ 
+        type: 'danger', 
+        text: 'Failed to confirm ride. Please try again.' 
+      });
+    }
+  };
+
+  // Toggle between using current location and manual input
+  const handleLocationToggle = () => {
+    if (!useCurrentLocation) {
+      // If switching to current location, fetch it
+      fetchCustomerLocation();
+    }
+    setUseCurrentLocation(!useCurrentLocation);
+  };
+
+  const onPickupMarkerClick = useCallback(() => {
+    setShowPickupInfoWindow(true);
+    setShowDestinationInfoWindow(false);
+  }, []);
+
+  const onDestinationMarkerClick = useCallback(() => {
+    setShowDestinationInfoWindow(true);
+    setShowPickupInfoWindow(false);
+  }, []);
+
+  const closeInfoWindows = useCallback(() => {
+    setShowPickupInfoWindow(false);
+    setShowDestinationInfoWindow(false);
+  }, []);
+
+  const mapCenter = useMemo(() => {
+    if (directions) {
+      // If we have directions, center the map at the midpoint of the route
+      const bounds = new window.google.maps.LatLngBounds();
+      directions.routes[0].overview_path.forEach(point => {
+        bounds.extend(point);
+      });
+      const center = bounds.getCenter();
+      return { lat: center.lat(), lng: center.lng() };
+    } else if (pickupLocation && destinationLocation) {
+      // If we have both pickup and destination, center between them
+      return {
+        lat: (Number(pickupLocation.latitude) + Number(destinationLocation.latitude)) / 2,
+        lng: (Number(pickupLocation.longitude) + Number(destinationLocation.longitude)) / 2
+      };
+    } else if (pickupLocation) {
+      // Center on pickup location
+      return { lat: Number(pickupLocation.latitude), lng: Number(pickupLocation.longitude) };
+    }
+    return defaultCenter;
+  }, [pickupLocation, destinationLocation, directions, defaultCenter]);
+
+  // Calculate map zoom level
+  const mapZoom = useMemo(() => {
+    if (directions || (pickupLocation && destinationLocation)) {
+      return 12;  // Zoom out a bit when showing both points
+    }
+    return 14;    // Default zoom for single location
+  }, [pickupLocation, destinationLocation, directions]);
+
+  // Get min date for prebooking (today's date)
+  const getMinDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
   };
 
   // Handle prebooking submission
@@ -355,66 +527,6 @@ const CustomerDashboard = () => {
   const handlePrebookingClick = (prebooking) => {
     setSelectedPrebooking(prebooking);
     setShowPrebookModal(true);
-  };
-
-  // Toggle between using current location and manual input
-  const handleLocationToggle = () => {
-    if (!useCurrentLocation) {
-      // If switching to current location, fetch it
-      fetchCustomerLocation();
-    }
-    setUseCurrentLocation(!useCurrentLocation);
-  };
-
-  const onPickupMarkerClick = useCallback(() => {
-    setShowPickupInfoWindow(true);
-    setShowDestinationInfoWindow(false);
-  }, []);
-
-  const onDestinationMarkerClick = useCallback(() => {
-    setShowDestinationInfoWindow(true);
-    setShowPickupInfoWindow(false);
-  }, []);
-
-  const closeInfoWindows = useCallback(() => {
-    setShowPickupInfoWindow(false);
-    setShowDestinationInfoWindow(false);
-  }, []);
-
-  const mapCenter = useMemo(() => {
-    if (directions) {
-      // If we have directions, center the map at the midpoint of the route
-      const bounds = new window.google.maps.LatLngBounds();
-      directions.routes[0].overview_path.forEach(point => {
-        bounds.extend(point);
-      });
-      const center = bounds.getCenter();
-      return { lat: center.lat(), lng: center.lng() };
-    } else if (pickupLocation && destinationLocation) {
-      // If we have both pickup and destination, center between them
-      return {
-        lat: (Number(pickupLocation.latitude) + Number(destinationLocation.latitude)) / 2,
-        lng: (Number(pickupLocation.longitude) + Number(destinationLocation.longitude)) / 2
-      };
-    } else if (pickupLocation) {
-      // Center on pickup location
-      return { lat: Number(pickupLocation.latitude), lng: Number(pickupLocation.longitude) };
-    }
-    return defaultCenter;
-  }, [pickupLocation, destinationLocation, directions, defaultCenter]);
-
-  // Calculate map zoom level
-  const mapZoom = useMemo(() => {
-    if (directions || (pickupLocation && destinationLocation)) {
-      return 12;  // Zoom out a bit when showing both points
-    }
-    return 14;    // Default zoom for single location
-  }, [pickupLocation, destinationLocation, directions]);
-
-  // Get min date for prebooking (today's date)
-  const getMinDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
   };
 
   return (
@@ -850,6 +962,96 @@ const CustomerDashboard = () => {
                 Cancel Prebooking
               </Button>
             )}
+          </Modal.Footer>
+        </Modal>
+        
+        {/* Driver Selection Modal */}
+        <Modal 
+          show={showDriverModal} 
+          onHide={() => setShowDriverModal(false)}
+          centered
+          size="lg"
+        >
+          <Modal.Header closeButton>
+            <Modal.Title>Choose Your Driver</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <h5 className="mb-3">Ride Details: ₹{rideFare} • {rideDistance} km • {rideDuration} min</h5>
+            
+            {availableDrivers.length > 0 ? (
+              <Row>
+                {availableDrivers.map((driver) => (
+                  <Col md={6} key={driver.driver_id} className="mb-3">
+                    <Card
+                      className={`h-100 ${selectedDriver?.driver_id === driver.driver_id ? 'border-primary' : ''}`}
+                      onClick={() => handleDriverSelect(driver)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <Card.Body>
+                        <div className="d-flex">
+                          <div className="me-3">
+                            <Image 
+                              src={driver.photo_url}
+                              roundedCircle
+                              width={60}
+                              height={60}
+                            />
+                          </div>
+                          <div>
+                            <h5>{driver.driver_id}</h5>
+                            <div className="d-flex align-items-center">
+                              <span className="text-warning me-1">★</span>
+                              <span>{driver.rating.toFixed(1)}</span>
+                            </div>
+                            <Badge bg="secondary">{driver.vehicle_type}</Badge>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3">
+                          <div className="d-flex justify-content-between">
+                            <span>Acceptance Probability:</span>
+                            <span>{(driver.probability * 100).toFixed(1)}%</span>
+                          </div>
+                          <ProgressBar 
+                            now={driver.probability * 100}
+                            variant={
+                              driver.probability > 0.5 ? 'success' :
+                              driver.probability > 0.3 ? 'warning' : 'danger'
+                            }
+                            className="mt-1"
+                          />
+                        </div>
+                        
+                        <div className="mt-3">
+                          <small className="text-muted">
+                            <div><b>Experience:</b> {driver.experience_months} months</div>
+                            <div><b>Primary Ward:</b> {driver.primary_ward}</div>
+                            <div className="d-flex justify-content-between mt-2">
+                              <span>🛣️ {driver.distance.toFixed(1)} km away</span>
+                              <span>⏱️ {driver.eta} mins ETA</span>
+                            </div>
+                          </small>
+                        </div>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                ))}
+              </Row>
+            ) : (
+              <p className="text-center py-4">No drivers available at this time.</p>
+            )}
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowDriverModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleConfirmRide}
+              disabled={!selectedDriver}
+            >
+              Confirm with {selectedDriver?.driver_id || 'Driver'}
+            </Button>
           </Modal.Footer>
         </Modal>
       </Container>
