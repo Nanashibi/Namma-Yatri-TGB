@@ -106,8 +106,8 @@ def main():
         }
     ]
 
-    model_path = os.path.join("trained_models", "driver_ranker_model.pkl")
-    encoder_path = os.path.join("trained_models", "driver_encoder.pkl")
+    model_path = os.path.join("..","trained_models", "driver_ranker_model.pkl")
+    encoder_path = os.path.join("..","trained_models", "driver_encoder.pkl")
 
     ranked_drivers = rank_drivers(ride, nearby_drivers, model_path, encoder_path)
 
