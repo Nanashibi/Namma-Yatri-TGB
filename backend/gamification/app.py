@@ -1,23 +1,28 @@
-from fastapi import FastAPI
+from fastapi import APIRouter
 import pandas as pd
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import math
+import mysql.connector
 
-app = FastAPI()
+router = APIRouter()
 
-# Allow frontend requests
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Update with frontend URL in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
-# File paths
-DRIVERS_DATA_PATH = os.path.join("..", "..", "datasets", "drivers_data.csv")
-RIDES_DATA_PATH = os.path.join("..", "..", "datasets", "rides_data.csv")
+DB_CONFIG = {
+    "host": os.getenv("DB_HOST", "localhost"),
+    "user": os.getenv("DB_USER", "root"),
+    "password": os.getenv("DB_PASSWORD", ""),
+    "database": os.getenv("DB_NAME", "namma_yatri_db")
+}
+
+# Database connection
+def get_db_connection():
+    return mysql.connector.connect(
+        host=DB_CONFIG["host"],
+        user=DB_CONFIG["user"],
+        password=DB_CONFIG["password"],
+        database=DB_CONFIG["database"]
+    )
 
 # Tier Calculation Function
 def calculate_tier(base_acceptance, peak_acceptance, total_rides):
@@ -32,15 +37,19 @@ def calculate_tier(base_acceptance, peak_acceptance, total_rides):
 
 # Function to get total rides per driver
 def get_total_rides():
-    rides_df = pd.read_csv(RIDES_DATA_PATH)
-    total_rides = rides_df.groupby("driver_id").size().reset_index(name="total_rides")
+    conn = get_db_connection()
+    query = "SELECT driver_id, COUNT(*) as total_rides FROM ride_data GROUP BY driver_id"
+    total_rides = pd.read_sql(query, conn)
+    conn.close()
     return total_rides
 
 # Load and Process Driver Data
 def get_driver_data():
-    df = pd.read_csv(DRIVERS_DATA_PATH)
+    conn = get_db_connection()
+    query = "SELECT driver_id, base_acceptance_rate, peak_acceptance_rate FROM driver_data"
+    df = pd.read_sql(query, conn)
     
-    # Get total rides from rides_data.csv
+    # Get total rides from ride_data table
     rides_df = get_total_rides()
 
     # Merge total_rides into drivers data
@@ -72,10 +81,11 @@ def get_driver_data():
     # Assign Rank
     df["rank"] = df.index + 1  # Ranks start from 1
 
+    conn.close()
     return df[["driver_id", "rank", "coins", "tier"]].to_dict(orient="records")
 
 # API Endpoint
-@app.get("/driver")
+@router.get("/driver")
 def get_leaderboard():
     leaderboard = get_driver_data()
     return {"leaderboard": leaderboard}

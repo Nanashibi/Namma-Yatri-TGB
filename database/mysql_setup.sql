@@ -60,6 +60,33 @@ CREATE TABLE IF NOT EXISTS prebooked_rides (
     FOREIGN KEY (customer_id) REFERENCES users(user_id)
 );
 
+-- Create the 'driver_data' table
+CREATE TABLE driver_data (
+    driver_id VARCHAR(255) PRIMARY KEY,
+    experience_months INT,
+    primary_ward VARCHAR(255),
+    base_acceptance_rate DECIMAL(5, 4),
+    peak_acceptance_rate DECIMAL(5, 4),
+    avg_daily_hours DECIMAL(5, 2)
+);
+
+-- Create the 'ride_data' table
+CREATE TABLE ride_data (
+    ride_id VARCHAR(255) PRIMARY KEY,
+    timestamp DATETIME,
+    origin_ward VARCHAR(255),
+    destination_ward VARCHAR(255),
+    driver_id VARCHAR(255),
+    distance_km DECIMAL(5, 2),
+    fare DECIMAL(10, 2),
+    surge_multiplier DECIMAL(3, 2),
+    duration_minutes INT,
+    hour INT,
+    day_of_week INT,
+    is_weekend BOOLEAN,
+    FOREIGN KEY (driver_id) REFERENCES driver_data(driver_id)
+);
+
 -- Add an admin user for testing
 INSERT INTO users (name, email, password_hash, user_type)
 VALUES ('Admin User', 'admin@nammayatri.com', 'admin123', 'admin');
@@ -86,3 +113,7 @@ INSERT INTO users (name, email, password_hash, user_type)
 VALUES ('Mary Driver', 'mary@driver.com', 'password', 'driver');
 INSERT INTO driver (driver_id, is_available, latitude, longitude, location) 
 VALUES (LAST_INSERT_ID(), TRUE, 12.9352, 77.6245, 'Koramangala');
+
+-- Optimize 'rides' table for large data
+ALTER TABLE rides ADD INDEX (driver_id);
+ALTER TABLE rides ADD INDEX (customer_id);
