@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Container, Row, Col, Card, Table, Badge, Button } from 'react-bootstrap';
+import { Container, Row, Col, Card, Table, Badge, Button, Spinner, Alert } from 'react-bootstrap';
 import { AuthContext } from '../../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import Navbar from '../common/Navbar';
@@ -8,31 +8,164 @@ import api from '../../utils/api';
 const AdminDashboard = () => {
   const { currentUser } = useContext(AuthContext);
   const [drivers, setDrivers] = useState([]);
-  const [customers, setcustomers] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // In a real application, these would be actual API calls
-        const driversResponse = await api.get('/admin/drivers');
-        const customersResponse = await api.get('/admin/customers');
-        const tripsResponse = await api.get('/admin/trips');
+        setError(null);
         
-        setDrivers(driversResponse.data || []);
-        setcustomers(customersResponse.data || []);
-        setTrips(tripsResponse.data || []);
+        console.log('Fetching admin dashboard data...');
+
+        // Use dummy data if API calls fail in development
+        let driversData = [];
+        let customersData = [];
+        let tripsData = [];
+        
+        try {
+          const driversResponse = await api.get('/admin/drivers');
+          driversData = Array.isArray(driversResponse.data) 
+            ? driversResponse.data 
+            : driversResponse.data?.drivers || [];
+          console.log('Drivers data received:', driversData);
+        } catch (driverError) {
+          console.error('Failed to fetch drivers:', driverError);
+          // Use dummy data in development mode
+          if (process.env.NODE_ENV === 'development') {
+            driversData = [
+              {
+                driver_id: 1,
+                name: 'Ramesh Kumar',
+                is_available: true,
+                location: 'Koramangala',
+                rating: 4.8
+              },
+              {
+                driver_id: 2,
+                name: 'Suresh Patel',
+                is_available: false,
+                location: 'Indiranagar',
+                rating: 4.5
+              }
+            ];
+          }
+        }
+        
+        try {
+          const customersResponse = await api.get('/admin/customers');
+          customersData = Array.isArray(customersResponse.data) 
+            ? customersResponse.data 
+            : customersResponse.data?.customers || [];
+          console.log('Customers data received:', customersData);
+        } catch (customerError) {
+          console.error('Failed to fetch customers:', customerError);
+          // Use dummy data in development mode
+          if (process.env.NODE_ENV === 'development') {
+            customersData = [
+              {
+                customer_id: 1,
+                name: 'Priya Sharma',
+                email: 'priya.s@example.com',
+                trip_count: 15
+              },
+              {
+                customer_id: 2,
+                name: 'Vikram Iyer',
+                email: 'viyer@example.com',
+                trip_count: 8
+              }
+            ];
+          }
+        }
+        
+        try {
+          const tripsResponse = await api.get('/admin/trips');
+          tripsData = Array.isArray(tripsResponse.data) 
+            ? tripsResponse.data 
+            : tripsResponse.data?.trips || [];
+          console.log('Trips data received:', tripsData);
+        } catch (tripError) {
+          console.error('Failed to fetch trips:', tripError);
+          // Use dummy data in development mode
+          if (process.env.NODE_ENV === 'development') {
+            tripsData = [
+              {
+                trip_id: 'T12345',
+                customer_id: 1,
+                customer_name: 'Priya Sharma',
+                driver_id: 2,
+                driver_name: 'Suresh Patel',
+                pickup: 'Koramangala',
+                destination: 'Whitefield',
+                fare: 250,
+                status: 'completed',
+                date: '2023-04-15T14:30:00'
+              },
+              {
+                trip_id: 'T12346',
+                customer_id: 3,
+                customer_name: 'Ananya Desai',
+                driver_id: 1,
+                driver_name: 'Ramesh Kumar',
+                pickup: 'HSR Layout',
+                destination: 'Electronic City',
+                fare: 300,
+                status: 'completed',
+                date: '2023-04-16T09:15:00'
+              }
+            ];
+          }
+        }
+        
+        // Update state with fetched data
+        setDrivers(driversData);
+        setCustomers(customersData);
+        setTrips(tripsData);
+        
       } catch (error) {
         console.error('Error fetching admin data:', error);
+        setError('Failed to load dashboard data. Please try again later.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
-  }, []);
+    if (currentUser) {
+      fetchData();
+    }
+  }, [currentUser]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <>
+        <Navbar />
+        <Container className="mt-5 text-center">
+          <Spinner animation="border" role="status" />
+          <p className="mt-2">Loading admin dashboard data...</p>
+        </Container>
+      </>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <>
+        <Navbar />
+        <Container className="mt-5">
+          <Alert variant="danger">{error}</Alert>
+          <Button onClick={() => window.location.reload()} variant="primary" className="mt-3">
+            Retry Loading Data
+          </Button>
+        </Container>
+      </>
+    );
+  }
 
   return (
     <>
@@ -81,9 +214,7 @@ const AdminDashboard = () => {
             <Card className="mb-4">
               <Card.Header>Recent Trips</Card.Header>
               <Card.Body>
-                {loading ? (
-                  <p>Loading trip data...</p>
-                ) : trips.length > 0 ? (
+                {trips.length > 0 ? (
                   <Table striped bordered hover responsive>
                     <thead>
                       <tr>
@@ -127,9 +258,7 @@ const AdminDashboard = () => {
             <Card>
               <Card.Header>Registered Drivers</Card.Header>
               <Card.Body>
-                {loading ? (
-                  <p>Loading driver data...</p>
-                ) : drivers.length > 0 ? (
+                {drivers.length > 0 ? (
                   <Table striped bordered hover responsive>
                     <thead>
                       <tr>
@@ -165,9 +294,7 @@ const AdminDashboard = () => {
             <Card>
               <Card.Header>Registered Customers</Card.Header>
               <Card.Body>
-                {loading ? (
-                  <p>Loading customer data...</p>
-                ) : customers.length > 0 ? (
+                {customers.length > 0 ? (
                   <Table striped bordered hover responsive>
                     <thead>
                       <tr>
