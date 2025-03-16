@@ -13,6 +13,7 @@ const mapContainerStyle = {
 const CustomerDashboard = () => {
   const { currentUser } = useContext(AuthContext);
   const [pickupLocation, setPickupLocation] = useState(null);
+  const [pickupInput, setPickupInput] = useState('');  // New state for manual pickup input
   const [destinationInput, setDestinationInput] = useState('');
   const [destinationLocation, setDestinationLocation] = useState(null);
   const [message, setMessage] = useState(null);
@@ -22,6 +23,7 @@ const CustomerDashboard = () => {
   const [showDestinationInfoWindow, setShowDestinationInfoWindow] = useState(false);
   const [directions, setDirections] = useState(null);
   const [geocoding, setGeocoding] = useState(false);
+  const [useCurrentLocation, setUseCurrentLocation] = useState(true); // To toggle between current and manual location
 
   // Google Maps API key from environment variables
   const googleMapsApiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || '';
@@ -99,8 +101,8 @@ const CustomerDashboard = () => {
     }
   };
 
-  // Function to geocode the destination address to get coordinates
-  const geocodeAddress = useCallback((address) => {
+  // Function to geocode an address (for both pickup and destination)
+  const geocodeAddress = useCallback((address, isPickup = false) => {
     if (!isLoaded || !window.google) return;
     
     const geocoder = new window.google.maps.Geocoder();
@@ -109,26 +111,37 @@ const CustomerDashboard = () => {
     geocoder.geocode({ address: address + ', Bengaluru, Karnataka, India' }, (results, status) => {
       if (status === 'OK' && results[0]) {
         const location = results[0].geometry.location;
-        setDestinationLocation({
+        const formattedLocation = {
           location: results[0].formatted_address,
           latitude: location.lat(),
           longitude: location.lng()
-        });
+        };
+        
+        if (isPickup) {
+          setPickupLocation(formattedLocation);
+          // When updating pickup manually, set useCurrentLocation to false
+          setUseCurrentLocation(false);
+        } else {
+          setDestinationLocation(formattedLocation);
+        }
         
         // If we have both pickup and destination, calculate directions
-        if (pickupLocation) {
+        if ((isPickup && destinationLocation) || (!isPickup && pickupLocation)) {
+          const origin = isPickup ? formattedLocation : pickupLocation;
+          const destination = isPickup ? destinationLocation : formattedLocation;
+          
           calculateDirections(
-            { lat: pickupLocation.latitude, lng: pickupLocation.longitude },
-            { lat: location.lat(), lng: location.lng() }
+            { lat: origin.latitude, lng: origin.longitude },
+            { lat: destination.latitude, lng: destination.longitude }
           );
         }
       } else {
         console.error('Geocoding failed:', status);
-        setMessage({ type: 'warning', text: 'Could not find that location, please try again' });
+        setMessage({ type: 'warning', text: `Could not find ${isPickup ? 'pickup' : 'destination'} location, please try again` });
       }
       setGeocoding(false);
     });
-  }, [isLoaded, pickupLocation]);
+  }, [isLoaded, pickupLocation, destinationLocation]);
 
   // Calculate directions between two points
   const calculateDirections = useCallback((origin, destination) => {
@@ -153,6 +166,18 @@ const CustomerDashboard = () => {
     );
   }, [isLoaded]);
 
+  const handleSearchPickup = (e) => {
+    e.preventDefault();
+    
+    if (!pickupInput) {
+      setMessage({ type: 'warning', text: 'Please enter a pickup location' });
+      return;
+    }
+    
+    // Geocode the pickup address to get coordinates
+    geocodeAddress(pickupInput, true);
+  };
+
   const handleSearchDestination = (e) => {
     e.preventDefault();
     
@@ -161,12 +186,17 @@ const CustomerDashboard = () => {
       return;
     }
     
-    // Geocode the address to get coordinates
-    geocodeAddress(destinationInput);
+    // Geocode the destination address to get coordinates
+    geocodeAddress(destinationInput, false);
   };
 
   const handleBookRide = async (e) => {
     e.preventDefault();
+    
+    if (!pickupLocation) {
+      setMessage({ type: 'warning', text: 'Please set a pickup location first' });
+      return;
+    }
     
     if (!destinationLocation) {
       setMessage({ type: 'warning', text: 'Please search for a destination first' });
@@ -177,6 +207,7 @@ const CustomerDashboard = () => {
     try {
       console.log("Booking ride with data:", {
         destination: destinationLocation.location,
+        pickup: pickupLocation.location,
         pickup_lat: pickupLocation.latitude,
         pickup_lng: pickupLocation.longitude,
         destination_lat: destinationLocation.latitude,
@@ -185,6 +216,7 @@ const CustomerDashboard = () => {
       
       const response = await api.post(`/customers/${currentUser.user_id}/request-ride`, { 
         destination: destinationLocation.location,
+        pickup: pickupLocation.location,
         // Include coordinates in the request
         pickup_lat: pickupLocation.latitude,
         pickup_lng: pickupLocation.longitude,
@@ -207,6 +239,15 @@ const CustomerDashboard = () => {
     } finally {
       setSearchingDrivers(false);
     }
+  };
+
+  // Toggle between using current location and manual input
+  const handleLocationToggle = () => {
+    if (!useCurrentLocation) {
+      // If switching to current location, fetch it
+      fetchCustomerLocation();
+    }
+    setUseCurrentLocation(!useCurrentLocation);
   };
 
   const onPickupMarkerClick = useCallback(() => {
@@ -266,46 +307,104 @@ const CustomerDashboard = () => {
         <Row className="mt-4">
           <Col md={6}>
             <Card>
-              <Card.Header>Your Current Location</Card.Header>
+              <Card.Header>
+                <div className="d-flex justify-content-between align-items-center">
+                  <span>Your Location</span>
+                  <Form.Check 
+                    type="switch"
+                    id="location-toggle"
+                    label={useCurrentLocation ? "Using Current Location" : "Enter Manually"}
+                    checked={useCurrentLocation}
+                    onChange={handleLocationToggle}
+                    className="mb-0"
+                  />
+                </div>
+              </Card.Header>
               <Card.Body>
-                <Row>
-                  <Col>
-                    {loading ? (
-                      <div className="text-center">
-                        <Spinner animation="border" role="status" />
-                        <p className="mt-2">Loading location data...</p>
-                      </div>
-                    ) : pickupLocation ? (
-                      <>
-                        <p><strong>Area:</strong> {pickupLocation.location || 'Unknown'}</p>
-                        <p><strong>Latitude:</strong> {pickupLocation.latitude.toFixed(6) || 'N/A'}</p>
-                        <p><strong>Longitude:</strong> {pickupLocation.longitude.toFixed(6) || 'N/A'}</p>
-                      </>
-                    ) : (
-                      <p>Location data not available. Please refresh your location.</p>
-                    )}
-                  </Col>
-                </Row>
-                <Button 
-                  variant="primary" 
-                  onClick={handleRefreshLocation}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Spinner 
-                        as="span" 
-                        animation="border" 
-                        size="sm" 
-                        role="status" 
-                        aria-hidden="true" 
+                {useCurrentLocation ? (
+                  // Show current location data and refresh button
+                  <Row>
+                    <Col>
+                      {loading ? (
+                        <div className="text-center">
+                          <Spinner animation="border" role="status" />
+                          <p className="mt-2">Loading location data...</p>
+                        </div>
+                      ) : pickupLocation ? (
+                        <>
+                          <p><strong>Area:</strong> {pickupLocation.location || 'Unknown'}</p>
+                          <p><strong>Latitude:</strong> {pickupLocation.latitude.toFixed(6) || 'N/A'}</p>
+                          <p><strong>Longitude:</strong> {pickupLocation.longitude.toFixed(6) || 'N/A'}</p>
+                        </>
+                      ) : (
+                        <p>Location data not available. Please refresh your location.</p>
+                      )}
+                    </Col>
+                    <Button 
+                      variant="primary" 
+                      onClick={handleRefreshLocation}
+                      disabled={loading}
+                      className="mt-2"
+                    >
+                      {loading ? (
+                        <>
+                          <Spinner 
+                            as="span" 
+                            animation="border" 
+                            size="sm" 
+                            role="status" 
+                            aria-hidden="true" 
+                          />
+                          <span className="ms-2">Loading...</span>
+                        </>
+                      ) : (
+                        'Refresh Location'
+                      )}
+                    </Button>
+                  </Row>
+                ) : (
+                  // Show manual pickup location input form
+                  <Form onSubmit={handleSearchPickup}>
+                    <Form.Group>
+                      <Form.Label>Enter your pickup location</Form.Label>
+                      <Form.Control 
+                        type="text" 
+                        value={pickupInput}
+                        onChange={(e) => setPickupInput(e.target.value)}
+                        placeholder="Enter pickup location"
+                        required
                       />
-                      <span className="ms-2">Loading...</span>
-                    </>
-                  ) : (
-                    'Refresh Location'
-                  )}
-                </Button>
+                    </Form.Group>
+                    <Button 
+                      variant="primary" 
+                      type="submit" 
+                      className="mt-3"
+                      disabled={geocoding}
+                    >
+                      {geocoding ? (
+                        <>
+                          <Spinner 
+                            as="span" 
+                            animation="border" 
+                            size="sm" 
+                            role="status" 
+                            aria-hidden="true" 
+                          />
+                          <span className="ms-2">Searching...</span>
+                        </>
+                      ) : (
+                        'Set Pickup Location'
+                      )}
+                    </Button>
+                  </Form>
+                )}
+                
+                {!useCurrentLocation && pickupLocation && (
+                  <div className="my-3 p-3 bg-light rounded">
+                    <h6>Selected Pickup Location:</h6>
+                    <p className="mb-0">{pickupLocation.location}</p>
+                  </div>
+                )}
               </Card.Body>
             </Card>
             
@@ -327,7 +426,7 @@ const CustomerDashboard = () => {
                     variant="primary" 
                     type="submit" 
                     className="mt-3"
-                    disabled={geocoding || !pickupLocation}
+                    disabled={geocoding}
                   >
                     {geocoding ? (
                       <>
